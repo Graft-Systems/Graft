@@ -1,44 +1,54 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 
 export default function LoginPage() {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
-    const router = useRouter();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
 
-        // Clear old tokens
-        localStorage.removeItem("access");
-        localStorage.removeItem("refresh");
-        localStorage.removeItem("is_staff");
-
         try {
+            // Call API to login
             const res = await api.post("login/", { username, password });
             const { access, refresh, is_staff, role } = res.data;
 
-            // Save tokens and staff status in localStorage
-            localStorage.setItem("access", access);
-            localStorage.setItem("refresh", refresh);
-            localStorage.setItem("is_staff", is_staff ? "true" : "false");
-            localStorage.setItem("role", role);
-
-            // Redirect based on role
-            if (is_staff) {
-                window.location.href = `http://localhost:3001/dashboards/AdminDashboard?access=${access}&refresh=${refresh}`;
-            } else if (role === "winery") {
-                window.location.href = `http://localhost:3001/dashboards/ProducerDashboard?access=${access}&refresh=${refresh}`;
-            } else if (role === "retailer") {
-                window.location.href = `http://localhost:3001/dashboards/RetailerDashboard?access=${access}&refresh=${refresh}`;
-            }
+            // Determine dashboard URL based on role
+            let dashboardUrl = "";
+            if (is_staff) dashboardUrl = "http://localhost:3001/dashboards/AdminDashboard";
+            else if (role === "producer") dashboardUrl = "http://localhost:3001/dashboards/ProducerDashboard";
+            else if (role === "retailer") dashboardUrl = "http://localhost:3001/dashboards/RetailerDashboard";
             else {
-                router.push("/"); // Normal users stay in the current app/port
+                setError("Invalid user role");
+                return;
             }
+
+            // Open dashboard in a new window
+            const dashboardWindow = window.open(dashboardUrl, "_blank");
+            if (!dashboardWindow) {
+                setError("Please allow popups for this site.");
+                return;
+            }
+
+            // Listen for token request from the dashboard window
+            const handleMessage = (event: MessageEvent) => {
+                if (event.origin !== "http://localhost:3001") return;
+
+                if (event.data === "requestTokens") {
+                    dashboardWindow.postMessage({ access, refresh, role, is_staff }, "http://localhost:3001");
+                }
+            };
+
+            window.addEventListener("message", handleMessage);
+
+            // Clean up listener after a few seconds
+            setTimeout(() => {
+                window.removeEventListener("message", handleMessage);
+            }, 5000);
+
         } catch (err: any) {
             console.error(err.response?.data || err.message);
             setError(err.response?.data?.error || "Login failed. Please try again.");
@@ -55,9 +65,7 @@ export default function LoginPage() {
                     Login
                 </h2>
 
-                {error && (
-                    <p className="text-center text-sm text-red-600 mb-4">{error}</p>
-                )}
+                {error && <p className="text-center text-sm text-red-600 mb-4">{error}</p>}
 
                 <input
                     type="text"

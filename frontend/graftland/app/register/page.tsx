@@ -62,7 +62,7 @@ export default function RegisterPage() {
                     className="w-full p-3 mb-6 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-600"
                 >
                     <option value="retailer">Retailer</option>
-                    <option value="winery">Winery</option>
+                    <option value="producer">Producer</option>
                 </select>
 
                 <button
