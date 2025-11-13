@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Graph Systems",
+  title: "Graft Systems",
   description: "Intelligent Wine Insights",
 };
 
