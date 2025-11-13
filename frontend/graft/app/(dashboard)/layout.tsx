@@ -1,0 +1,58 @@
+"use client";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+    const router = useRouter();
+    // State for loading and for holding the user's role
+    const [loading, setLoading] = useState(true);
+    const [role, setRole] = useState<string | null>(null);
+
+    useEffect(() => {
+        // When the layout mounts, check localStorage for auth tokens
+        const accessToken = localStorage.getItem("access");
+        const userRole = localStorage.getItem("role");
+
+        if (accessToken && userRole) {
+            // If tokens exist, the user is authenticated.
+            // Set the role for the sidebar and stop loading.
+            setRole(userRole);
+            setLoading(false);
+        } else {
+            // If no tokens, the user is not authenticated.
+            // Redirect them to the login page.
+            router.push("/home/login");
+        }
+
+        // This effect should run once when the component mounts.
+        // We add `router` to the dependency array because it's used inside.
+    }, [router]);
+
+    // Show loading spinner while checking auth
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-screen bg-gray-100">
+                <p className="text-gray-600">Loading dashboard...</p>
+            </div>
+        );
+    }
+
+    // If not loading, we are authenticated, so render the real layout
+    return (
+        <div className="flex min-h-screen">
+            <aside className="w-64 bg-gray-900 text-white p-6">
+                <h2 className="text-xl font-bold mb-8">
+                    {/* Use the role from state */}
+                    {role === "admin" ? "Graft Admin" :
+                        role ==="producer" ? "Graft Producer" :
+                        role === "retailer" ? "Graft Retailer" : "Graft Dashboard"}
+                </h2>
+                {/* You can add shared navigation links here */}
+            </aside>
+
+            <main className="flex-1 bg-gray-100 p-10">
+                {children}
+            </main>
+        </div>
+    );
+}
