@@ -1,9 +1,0 @@
-{
-    "name": "frontend",
-    "private": true,
-    "scripts": {
-        "dev": "npm run dev --prefix graft",
-        "build": "npm run build --prefix graft",
-        "start": "npm run start --prefix graft"
-    }
-}
