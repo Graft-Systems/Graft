@@ -14,7 +14,7 @@ export default function AdminDashboard() {
             localStorage.setItem("access", access);
             localStorage.setItem("refresh", refresh);
             localStorage.setItem("is_staff", "true");
-            // optionally clear URL params
+            // Clean up URL
             window.history.replaceState({}, "", "/AdminDashboard");
         }
 
@@ -22,7 +22,10 @@ export default function AdminDashboard() {
         const isStaff = localStorage.getItem("is_staff");
 
         if (!token || isStaff !== "true") {
-            window.location.href = "http://localhost:3000/login";
+            const baseUrl =
+                process.env.NEXT_PUBLIC_FRONTEND_URL ||
+                window.location.origin; // fallback to current origin
+            window.location.href = `${baseUrl}/login`;
         }
     }, []);
 
