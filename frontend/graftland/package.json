@@ -184,7 +184,7 @@
     "natural-compare": "^1.4.0",
     "next": "^16.0.1",
     "node-releases": "^2.0.27",
-    "npx": "^3.0.0",
+    "npx": "^10.2.2",
     "object-assign": "^4.1.1",
     "object-inspect": "^1.13.4",
     "object-keys": "^1.1.1",
