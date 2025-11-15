@@ -40,16 +40,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // If not loading, we are authenticated, so render the real layout
     return (
         <div className="flex min-h-screen">
-            <aside className="w-64 bg-gray-900 text-white p-6">
-                <h2 className="text-xl font-bold mb-8">
-                    {/* Use the role from state */}
-                    {role === "admin" ? "Graft Admin" :
-                        role ==="producer" ? "Graft Producer" :
-                        role === "retailer" ? "Graft Retailer" : "Graft Dashboard"}
-                </h2>
-                {/* You can add shared navigation links here */}
-            </aside>
-
             <main className="flex-1 bg-gray-100 p-10">
                 {children}
             </main>

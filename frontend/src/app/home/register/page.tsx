@@ -1,40 +1,30 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import api from "@/lib/api";
+import api from "@/app/lib/api";
 
-export default function LoginPage() {
+export default function RegisterPage() {
     const router = useRouter();
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
+    const [role, setRole] = useState("retailer");
+    const [message, setMessage] = useState("");
     const [error, setError] = useState("");
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
+        setMessage("");
 
         try {
-            const res = await api.post("login/", { username, password });
-            const { access, refresh, is_staff, role } = res.data;
-
-            localStorage.setItem("access", access);
-            localStorage.setItem("refresh", refresh);
-            localStorage.setItem("role", role);
-            localStorage.setItem("is_staff", is_staff);
-
-            let dashboardPath = "";
-            if (is_staff) dashboardPath = "/AdminDashboard";
-            else if (role === "producer") dashboardPath = "/ProducerDashboard";
-            else if (role === "retailer") dashboardPath = "/RetailerDashboard";
-            else {
-                setError("Invalid user role");
-                return;
+            const res = await api.post("register/", { username, password, role });
+            if (res.status === 201) {
+                setMessage("Registration successful! Redirecting to login...");
+                setTimeout(() => router.push("/home/login"), 1500);
             }
-
-            router.push(dashboardPath);
         } catch (err: any) {
             console.error(err.response?.data || err.message);
-            setError(err.response?.data?.error || "Login failed. Please try again.");
+            setError("Registration failed. Username may already exist.");
         }
     };
 
@@ -50,29 +40,32 @@ export default function LoginPage() {
                 {/* LEFT PANEL */}
                 <div className="hidden md:flex flex-col justify-center w-1/2 p-14 bg-[#faf7f5] border-r border-gray-200 animate-slideInLeft">
                     <h1 className="text-4xl font-bold text-gray-900 leading-tight mb-4">
-                        Welcome Back to <br />
-                        <span className="text-rose-800">Graft Systems</span>
+                        Create Your Account <br />
+                        <span className="text-rose-800">Join Graft Systems</span>
                     </h1>
 
                     <p className="text-gray-600 text-lg max-w-sm">
-                        Modern distribution, AI-guided dashboards, and door-level visibility —
-                        helping wine brands grow with precision and confidence.
+                        Whether you're a producer or retailer, your personalized dashboard
+                        gives you complete clarity into distribution insights, inventory,
+                        and performance metrics — all powered by modern AI tooling.
                     </p>
                 </div>
 
                 {/* RIGHT PANEL */}
                 <div className="flex w-full md:w-1/2 items-center justify-center p-10 animate-slideInRight">
-                    <form
-                        onSubmit={handleSubmit}
-                        className="w-full max-w-sm"
-                    >
+                    <form onSubmit={handleSubmit} className="w-full max-w-sm">
                         <h2 className="text-3xl font-semibold text-rose-900 mb-6 text-center">
-                            Sign In
+                            Register
                         </h2>
 
                         {error && (
                             <p className="text-center text-sm text-red-600 mb-4">
                                 {error}
+                            </p>
+                        )}
+                        {message && (
+                            <p className="text-center text-sm text-green-600 mb-4">
+                                {message}
                             </p>
                         )}
 
@@ -92,6 +85,15 @@ export default function LoginPage() {
                                 onChange={(e) => setPassword(e.target.value)}
                                 className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-600"
                             />
+
+                            <select
+                                value={role}
+                                onChange={(e) => setRole(e.target.value)}
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-600"
+                            >
+                                <option value="retailer">Retailer</option>
+                                <option value="producer">Producer</option>
+                            </select>
                         </div>
 
                         <button
@@ -102,8 +104,18 @@ export default function LoginPage() {
                                 shadow-md hover:shadow-lg
                             "
                         >
-                            Login
+                            Register
                         </button>
+
+                        <p className="text-center text-sm text-gray-600 mt-6">
+                            Already have an account?{" "}
+                            <span
+                                onClick={() => router.push("/home/login")}
+                                className="text-rose-700 font-medium hover:underline cursor-pointer"
+                            >
+                                Login
+                            </span>
+                        </p>
                     </form>
                 </div>
             </div>
