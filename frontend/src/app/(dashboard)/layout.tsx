@@ -40,7 +40,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // If not loading, we are authenticated, so render the real layout
     return (
         <div className="flex min-h-screen">
-            <main className="flex-1 bg-gray-100 p-10">
+            <main className="flex-1 bg-gray-100">
                 {children}
             </main>
         </div>

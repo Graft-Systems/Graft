@@ -1,0 +1,237 @@
+[
+    {
+        "model": "graftapi.producer",
+        "pk": 1,
+        "fields": {
+            "name": "Silver Ridge Vineyards",
+            "region": "Napa Valley",
+            "contact_email": "info@silverridge.com"
+        }
+    },
+    {
+        "model": "graftapi.producer",
+        "pk": 2,
+        "fields": {
+            "name": "Harbor Crest Wines",
+            "region": "Willamette Valley",
+            "contact_email": "contact@harborcrest.com"
+        }
+    },
+    {
+        "model": "graftapi.wine",
+        "pk": 1,
+        "fields": {
+            "producer": 1,
+            "name": "Silver Ridge Cabernet",
+            "varietal": "Cabernet Sauvignon",
+            "region": "Napa Valley",
+            "vintage": 2020,
+            "bottle_size_ml": 750
+        }
+    },
+    {
+        "model": "graftapi.wine",
+        "pk": 2,
+        "fields": {
+            "producer": 2,
+            "name": "Harbor Crest Pinot Noir",
+            "varietal": "Pinot Noir",
+            "region": "Willamette Valley",
+            "vintage": 2022,
+            "bottle_size_ml": 750
+        }
+    },
+    {
+        "model": "graftapi.storechain",
+        "pk": 1,
+        "fields": {
+            "name": "City Spirits",
+            "headquarters_city": "New York"
+        }
+    },
+    {
+        "model": "graftapi.storechain",
+        "pk": 2,
+        "fields": {
+            "name": "MarketTown",
+            "headquarters_city": "Boston"
+        }
+    },
+    {
+        "model": "graftapi.store",
+        "pk": 1,
+        "fields": {
+            "chain": 1,
+            "name": "City Spirits – Downtown",
+            "neighborhood": "Central",
+            "street_address": "123 Main St",
+            "city": "New York",
+            "state": "NY",
+            "zip_code": "10001",
+            "latitude": 40.7128,
+            "longitude": -74.0060
+        }
+    },
+    {
+        "model": "graftapi.store",
+        "pk": 2,
+        "fields": {
+            "chain": 1,
+            "name": "City Spirits – Harbor",
+            "neighborhood": "Waterfront",
+            "street_address": "55 Pier Ave",
+            "city": "New York",
+            "state": "NY",
+            "zip_code": "10005",
+            "latitude": 40.7038,
+            "longitude": -74.0120
+        }
+    },
+    {
+        "model": "graftapi.store",
+        "pk": 3,
+        "fields": {
+            "chain": 2,
+            "name": "MarketTown – Hilltop",
+            "neighborhood": "North Side",
+            "street_address": "678 Hilltop Rd",
+            "city": "Boston",
+            "state": "MA",
+            "zip_code": "02115",
+            "latitude": 42.3601,
+            "longitude": -71.0589
+        }
+    },
+    {
+        "model": "graftapi.delivery",
+        "pk": 1,
+        "fields": {
+            "store": 1,
+            "wine": 1,
+            "delivery_date": "2025-01-15",
+            "cases": 5,
+            "bottles_per_case": 12
+        }
+    },
+    {
+        "model": "graftapi.delivery",
+        "pk": 2,
+        "fields": {
+            "store": 2,
+            "wine": 1,
+            "delivery_date": "2025-01-10",
+            "cases": 3,
+            "bottles_per_case": 12
+        }
+    },
+    {
+        "model": "graftapi.delivery",
+        "pk": 3,
+        "fields": {
+            "store": 3,
+            "wine": 2,
+            "delivery_date": "2025-01-20",
+            "cases": 4,
+            "bottles_per_case": 12
+        }
+    },
+    {
+        "model": "graftapi.retailsale",
+        "pk": 1,
+        "fields": {
+            "store": 1,
+            "wine": 1,
+            "date": "2025-01-25",
+            "bottles_sold": 8
+        }
+    },
+    {
+        "model": "graftapi.retailsale",
+        "pk": 2,
+        "fields": {
+            "store": 2,
+            "wine": 1,
+            "date": "2025-01-23",
+            "bottles_sold": 3
+        }
+    },
+    {
+        "model": "graftapi.retailsale",
+        "pk": 3,
+        "fields": {
+            "store": 3,
+            "wine": 2,
+            "date": "2025-01-26",
+            "bottles_sold": 6
+        }
+    },
+    {
+        "model": "graftapi.inventorysnapshot",
+        "pk": 1,
+        "fields": {
+            "store": 1,
+            "wine": 1,
+            "snapshot_date": "2025-01-26",
+            "bottles_on_hand": 12
+        }
+    },
+    {
+        "model": "graftapi.inventorysnapshot",
+        "pk": 2,
+        "fields": {
+            "store": 2,
+            "wine": 1,
+            "snapshot_date": "2025-01-26",
+            "bottles_on_hand": 3
+        }
+    },
+    {
+        "model": "graftapi.inventorysnapshot",
+        "pk": 3,
+        "fields": {
+            "store": 3,
+            "wine": 2,
+            "snapshot_date": "2025-01-26",
+            "bottles_on_hand": 0
+        }
+    },
+    {
+        "model": "graftapi.storeplacementstatus",
+        "pk": 1,
+        "fields": {
+            "store": 1,
+            "wine": 1,
+            "status": "active",
+            "estimated_bottles": 12,
+            "last_sale_date": "2025-01-25",
+            "last_delivery_date": "2025-01-15",
+            "estimated_days_left": 20
+        }
+    },
+    {
+        "model": "graftapi.storeplacementstatus",
+        "pk": 2,
+        "fields": {
+            "store": 2,
+            "wine": 1,
+            "status": "low",
+            "estimated_bottles": 3,
+            "last_sale_date": "2025-01-23",
+            "last_delivery_date": "2025-01-10",
+            "estimated_days_left": 5
+        }
+    },
+    {
+        "model": "graftapi.storeplacementstatus",
+        "pk": 3,
+        "fields": {
+            "store": 3,
+            "wine": 2,
+            "status": "inactive",
+            "estimated_bottles": 0,
+            "last_sale_date": null,
+            "last_delivery_date": "2025-01-20",
+            "estimated_days_left": null
+        }
+    }
+]
