@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Titillium_Web } from "next/font/google";
 import "./globals.css";
+import Navbar from "@/components/Navbar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,7 +32,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${titillium.variable} antialiased`}>
-        {children}
+        <Navbar />
+        <div className="pt-20"> {/* Push content below fixed navbar */}
+          {children}
+        </div>
       </body>
     </html>
   );
