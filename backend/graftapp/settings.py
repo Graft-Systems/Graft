@@ -77,7 +77,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "https://graft-6311.onrender.com",
-    "https://graft-chi.vercel.app"
+    "https://graft-chi.vercel.app",
+    "https://www.graftsystems.com"
 ]
 
 ROOT_URLCONF = 'graftapp.urls'
