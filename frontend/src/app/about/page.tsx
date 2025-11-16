@@ -33,10 +33,10 @@ export default function AboutPage() {
                 >
                     <div className="relative w-full h-80">
                         <Image
-                            src="/images/story.jpg"
+                            src="/images/producers.jpg"
                             alt="Our Story"
                             fill
-                            className="object-contain rounded-xl"
+                            className="rounded-xl"
                         />
                     </div>
                 </motion.div>
@@ -75,7 +75,7 @@ export default function AboutPage() {
                         {
                             name: "Allen Zhang",
                             img: "/images/allen.jpg",
-                            desc: "Allen is a Junior at the University of Michigan from Saint Clair, Michigan, majoring in Computer Engineering. This past summer, he interned at Amazon as a Software Development Engineer Intern and will return next summer. He’s strongest in C++ and systems-style problem-solving, with experience ranging from backend development and algorithm optimization to building interactive graphics projects in three.js. He’s worked on projects like LifeSwitch, a lifestyle-change web platform, as well as research-driven engineering work through UROP at university. Across internships, coursework, and independent projects, he focuses on building fast, reliable systems and shipping polished, user-focused software. In his spare time, he has helped managing his family’s resturant."
+                            desc: "Allen is a Junior at the University of Michigan from Saint Clair, Michigan, majoring in Computer Engineering. This past summer, he interned at Amazon as a Software Development Engineer Intern and will return next summer. He’s strongest in C++ and systems-style problem-solving, with experience ranging from backend development and algorithm optimization to building interactive graphics projects in three.js. He’s worked on projects like LifeSwitch, a lifestyle-change web platform, as well as research-driven engineering work through UROP at university. In his spare time, he has helped managing his family’s resturant."
                         },
                         {
                             name: "Jordan Li",
@@ -92,7 +92,7 @@ export default function AboutPage() {
                             className="grid grid-cols-1 md:grid-cols-3 gap-8 bg-white p-8 rounded-2xl shadow-md"
                         >
                             {/* FULL IMAGE — NOT CROPPED */}
-                            <div className="relative w-full bg-white p-3 rounded-xl flex items-center justify-center border-none">
+                            {/* <div className="relative w-full bg-white p-3 rounded-xl flex items-center justify-center border-none">
                                 <div className="relative w-full h-full">
                                     <Image
                                         src={p.img}
@@ -101,9 +101,9 @@ export default function AboutPage() {
                                         className="object-contain rounded-lg"
                                     />
                                 </div>
-                            </div>
+                            </div> */}
 
-                            <div className="md:col-span-2">
+                            <div className="md:col-span-3">
                                 <h3 className="text-2xl font-semibold mb-3">{p.name}</h3>
                                 <p className="text-neutral-700 leading-relaxed text-lg">{p.desc}</p>
                             </div>
@@ -114,37 +114,35 @@ export default function AboutPage() {
             </section>
 
             {/* Name Section */}
-            <section className="max-w-5xl mx-auto pb-24 grid grid-cols-1 md:grid-cols-2 gap-14 items-center">
+            <section className="max-w-5xl mx-auto pb-24 grid grid-cols-1 md:grid-cols-1 gap-14 items-center">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6 }}
                     viewport={{ once: true }}
                 >
-                    <h2 className="text-4xl font-bold mb-6">Where Did the Name Deni Come From?</h2>
+                    <h2 className="text-4xl font-bold mb-6 text-center">Where Did the Name Deni Come From?</h2>
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: 0.2 }}
+                        viewport={{ once: true }}
+                        className="w-full relative rounded-2xl overflow-hidden shadow-md bg-white p-4 flex items-center justify-center"
+                    >
+                        <div className="relative w-full h-80">
+                            <Image
+                                src="/images/denis.jpg"
+                                alt="Denis Toner"
+                                fill
+                                className="rounded-xl"
+                            />
+                        </div>
+                    </motion.div>
                     <p className="text-lg leading-relaxed text-neutral-700">
                         Denis Toner (Deni) is the Founder of the Nantucket Wine & Food Festival and a legendary sage in the wine trade. He began this adventure while living on Nantucket and working in the wine industry as a sommelier for the Chanticleer Restaurant. Today, Denis and his wife, Susan, reside in Beaune, Burgundy, France. He remains an ambassador to the Nantucket Wine & Food Festival and has paved the way for greater recognition and love for many Burgundy Vignerons.
 
-                        His passion and knowledge for wine have affected countless individuals on their journeys in the industry, whether they are in the wine business, are collectors, or otherwise. 
+                        His passion and knowledge for wine have affected countless individuals on their journeys in the industry, whether they are in the wine business, are collectors, or otherwise.
                     </p>
-                </motion.div>
-
-                {/* FULL IMAGE — NOT CROPPED */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: 0.2 }}
-                    viewport={{ once: true }}
-                    className="w-full relative rounded-2xl overflow-hidden shadow-md bg-white p-4 flex items-center justify-center"
-                >
-                    <div className="relative w-full h-80">
-                        <Image
-                            src="/images/denis.jpg"
-                            alt="Denis Toner"
-                            fill
-                            className="object-contain rounded-xl"
-                        />
-                    </div>
                 </motion.div>
             </section>
         </div>
