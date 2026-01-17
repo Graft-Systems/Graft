@@ -8,8 +8,8 @@ export default function PurchasingInsightsPanel() {
     return (
         <div className="space-y-3">
             {insights.map((i) => (
-                <div key={i.product} className="p-4 bg-neutral-50 border rounded-lg">
-                    <strong>{i.product}</strong> — {i.freq}
+                <div key={i.product} className="p-4 bg-neutral-50 border rounded-lg" style={{ color: "#374151" }}>
+                    <strong style={{ color: "#171717" }}>{i.product}</strong> — {i.freq}
                 </div>
             ))}
         </div>

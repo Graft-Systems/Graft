@@ -8,10 +8,10 @@ export default function RetailContactsPanel() {
         <div className="space-y-3">
             {contacts.map((c) => (
                 <div key={c.store} className="p-4 bg-neutral-50 border rounded-lg">
-                    <h3 className="font-semibold text-lg">{c.store}</h3>
-                    <p>Buyer: {c.name}</p>
-                    <p>Phone: {c.phone}</p>
-                    <p>Last Contact: {c.last}</p>
+                    <h3 className="font-semibold text-lg" style={{ color: "#171717" }}>{c.store}</h3>
+                    <p style={{ color: "#374151" }}>Buyer: {c.name}</p>
+                    <p style={{ color: "#374151" }}>Phone: {c.phone}</p>
+                    <p style={{ color: "#374151" }}>Last Contact: {c.last}</p>
                 </div>
             ))}
         </div>

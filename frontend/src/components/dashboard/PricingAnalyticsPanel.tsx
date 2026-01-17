@@ -7,9 +7,9 @@ export default function PricingAnalyticsPanel() {
 
     return (
         <div>
-            <table className="w-full text-sm">
+            <table className="w-full text-sm" style={{ color: "#374151" }}>
                 <thead className="border-b">
-                    <tr>
+                    <tr style={{ color: "#171717" }}>
                         <th>Account</th>
                         <th>Net Price</th>
                         <th>Region Median</th>

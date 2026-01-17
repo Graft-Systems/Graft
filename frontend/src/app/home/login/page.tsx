@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/app/lib/api";
+import Navbar from "@/components/Navbar";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -39,7 +40,9 @@ export default function LoginPage() {
     };
 
     return (
-        <main className="flex min-h-screen items-center justify-center bg-[#f7f5f3]">
+        <>
+            <Navbar />
+            <main className="flex min-h-screen items-center justify-center bg-[#f7f5f3]">
             <div
                 className="
                     flex w-[90%] max-w-5xl min-h-[70vh]
@@ -82,7 +85,7 @@ export default function LoginPage() {
                                 placeholder="Username"
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-600"
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-600 text-gray-900 placeholder:text-gray-600"
                             />
 
                             <input
@@ -90,7 +93,7 @@ export default function LoginPage() {
                                 placeholder="Password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-600"
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-600 text-gray-900 placeholder:text-gray-600"
                             />
                         </div>
 
@@ -108,5 +111,6 @@ export default function LoginPage() {
                 </div>
             </div>
         </main>
+        </>
     );
 }

@@ -9,9 +9,9 @@ export default function OrderingPredictionsPanel() {
         <ul className="space-y-2">
             {predictions.map((p) => (
                 <li key={p.store} className="p-4 bg-neutral-50 border rounded-lg">
-                    <div className="font-semibold">{p.store}</div>
-                    <div>Likely reorder: {p.eta}</div>
-                    <div>Suggested: {p.cases} cases</div>
+                    <div className="font-semibold" style={{ color: "#171717" }}>{p.store}</div>
+                    <div style={{ color: "#374151" }}>Likely reorder: {p.eta}</div>
+                    <div style={{ color: "#374151" }}>Suggested: {p.cases} cases</div>
                 </li>
             ))}
         </ul>

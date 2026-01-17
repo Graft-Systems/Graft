@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Titillium_Web } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,7 +15,7 @@ const geistMono = Geist_Mono({
 const titillium = Titillium_Web({
   subsets: ["latin"],
   variable: "--font-titillium",
-  weight: ["200", "300", "400", "600", "700"], // choose the weights you need
+  weight: ["200", "300", "400", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -32,10 +31,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${titillium.variable} antialiased`}>
-        <Navbar />
-        <div className="pt-20"> {/* Push content below fixed navbar */}
-          {children}
-        </div>
+        {/* Navbar removed from here so it doesn't show in the dashboard */}
+        {children}
       </body>
     </html>
   );

@@ -8,12 +8,13 @@ export default function Sidebar() {
 
     return (
         <div
-            className={`h-screen border-r bg-white transition-all duration-300 shadow-sm
+            className={`h-screen border-r transition-all duration-300 shadow-sm
       ${open ? "w-64" : "w-16"} flex flex-col`}
+            style={{ backgroundColor: "#ffffff" }}
         >
             <div className="flex items-center justify-between p-4 border-b">
-                {open && <h1 className="font-semibold text-lg">Producer Dashboard</h1>}
-                <button onClick={() => setOpen(!open)}>
+                {open && <h1 className="font-semibold text-lg" style={{ color: "#171717" }}>Producer Dashboard</h1>}
+                <button onClick={() => setOpen(!open)} style={{ color: "#374151" }}>
                     <Menu size={20} />
                 </button>
             </div>
@@ -33,10 +34,16 @@ export default function Sidebar() {
 }
 
 function SidebarItem({ icon, label, open }: { icon: any; label: string; open: boolean }) {
+    const [hovered, setHovered] = useState(false);
     return (
         <div
-            className="flex items-center gap-3 px-3 py-2 text-sm 
-      hover:bg-rose-50 rounded-lg cursor-pointer transition"
+            className="flex items-center gap-3 px-3 py-2 text-sm rounded-lg cursor-pointer transition"
+            style={{ 
+                backgroundColor: hovered ? "#fff1f2" : "transparent",
+                color: hovered ? "#9f1239" : "#374151"
+            }}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
         >
             {icon}
             {open && <span>{label}</span>}

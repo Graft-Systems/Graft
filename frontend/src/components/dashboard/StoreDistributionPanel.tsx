@@ -7,9 +7,9 @@ export default function StoreDistributionPanel() {
 
     return (
         <div className="space-y-3">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm" style={{ color: "#374151" }}>
                 <thead className="text-left border-b">
-                    <tr>
+                    <tr style={{ color: "#171717" }}>
                         <th>Store</th>
                         <th>Neighborhood</th>
                         <th>Status</th>

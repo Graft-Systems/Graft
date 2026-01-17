@@ -2,8 +2,6 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.db import IntegrityError
 from .models import UserProfile, Producer
-from .models.wine import Wine
-from .models.store import Store, StoreChain
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -21,9 +19,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         try:
             user = User.objects.create_user(username=username, password=password)
             UserProfile.objects.create(user=user, role=role)
-            if role == 'producer' and not hasattr(user, 'producer_profile'):
-                # Create a minimal producer profile tied to this user so wine endpoints work
-                Producer.objects.create(user=user, name=username)
         except IntegrityError:
             user = User.objects.get(username=username)
             # Check if completed
@@ -37,9 +32,6 @@ class RegisterSerializer(serializers.ModelSerializer):
                 user.profile.save()
             else:
                 UserProfile.objects.create(user=user, role=role)
-            # Ensure producer profile exists when role is producer
-            if role == 'producer' and not hasattr(user, 'producer_profile'):
-                Producer.objects.create(user=user, name=username)
         return user
 
     def to_representation(self, instance):
@@ -54,43 +46,4 @@ class ProducerSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = Producer
-        fields = ('name', 'region', 'contact_email')
-        read_only_fields = ('user',)
-
-
-class StoreSerializer(serializers.ModelSerializer):
-    """
-    Serializer for Store profile creation.
-    """
-    class Meta:
-        model = Store
-        fields = ('name', 'street_address')
-        read_only_fields = ('user',)
-
-
-class WineSerializer(serializers.ModelSerializer):
-    # We mark producer as read_only because we will assign it 
-    # automatically from the logged-in user in the view.
-    producer_name = serializers.ReadOnlyField(source='producer.name')
-
-    class Meta:
-        model = Wine
-        fields = [
-            'id', 
-            'producer', 
-            'producer_name', 
-            'name', 
-            'varietal', 
-            'region', 
-            'vintage', 
-            'bottle_size_ml'
-        ]
-        read_only_fields = ['id', 'producer']
-
-    def validate_vintage(self, value):
-        """Check that the vintage is a realistic year."""
-        import datetime
-        current_year = datetime.date.today().year
-        if value and (value < 1700 or value > current_year + 5):
-            raise serializers.ValidationError("Please enter a valid vintage year.")
-        return value
+        fields = '__all__'

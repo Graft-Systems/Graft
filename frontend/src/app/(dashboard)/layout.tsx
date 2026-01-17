@@ -31,8 +31,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // Show loading spinner while checking auth
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-screen bg-gray-100">
-                <p className="text-gray-600">Loading dashboard...</p>
+            <div className="flex items-center justify-center h-screen" style={{ backgroundColor: "#f3f4f6" }}>
+                <p style={{ color: "#4b5563" }}>Loading dashboard...</p>
             </div>
         );
     }
@@ -40,7 +40,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // If not loading, we are authenticated, so render the real layout
     return (
         <div className="flex min-h-screen">
-            <main className="flex-1 bg-gray-100">
+            <main className="flex-1" style={{ backgroundColor: "#f3f4f6" }}>
                 {children}
             </main>
         </div>
