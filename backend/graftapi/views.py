@@ -56,6 +56,16 @@ class ProducerProfileView(generics.CreateAPIView):
     serializer_class = ProducerSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def create(self, request, *args, **kwargs):
+        # Upsert: if a producer profile already exists for this user, update it instead of throwing a 500.
+        existing = Producer.objects.filter(user=request.user).first()
+        if existing:
+            serializer = self.get_serializer(existing, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return super().create(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
@@ -67,6 +77,16 @@ class StoreProfileView(generics.CreateAPIView):
     queryset = Store.objects.all()
     serializer_class = StoreSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        # Upsert store profile for this user to avoid UNIQUE constraint failures on re-run.
+        existing = Store.objects.filter(user=request.user).first()
+        if existing:
+            serializer = self.get_serializer(existing, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
