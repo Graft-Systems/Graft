@@ -139,3 +139,60 @@ class ProducerWineDetailView(APIView):
             return Response({"error": "Wine not found"}, status=status.HTTP_404_NOT_FOUND)
         wine.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+def ai_chat(request):
+    """
+    Handle AI chat requests for statistics and insights
+    Endpoint: POST /api/ai/chat/
+    
+    Request body:
+    {
+        "message": "user message here"
+    }
+    
+    Response:
+    {
+        "message": "ai response here"
+    }
+    """
+    from .engine import get_ai_engine
+    
+    try:
+        user_message = request.data.get("message", "").strip()
+        
+        if not user_message:
+            return Response(
+                {"error": "Message cannot be empty"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get the AI engine
+        engine = get_ai_engine()
+        
+        # Prepare context with user info
+        context = {
+            "user": request.user.username,
+            "timestamp": str(__import__('datetime').datetime.now())
+        }
+        
+        # Get AI response
+        ai_response = engine.get_statistics_insights(user_message, context)
+        
+        return Response(
+            {"message": ai_response},
+            status=status.HTTP_200_OK
+        )
+    
+    except ValueError as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    except Exception as e:
+        return Response(
+            {"error": "Failed to get AI response", "details": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

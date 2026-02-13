@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .views import RegisterView, login_user, ProducerProfileView, ProducerWineView, ProducerWineDetailView, StoreProfileView, StoreProfileView
+from .views import RegisterView, login_user, ProducerProfileView, ProducerWineView, ProducerWineDetailView, StoreProfileView, ai_chat
 
 urlpatterns = [
     path("register/", RegisterView.as_view(), name="register"),
@@ -13,4 +13,6 @@ urlpatterns = [
     # Mounted under /api/ at the project level, so this should be /my-wines/
     path('my-wines/', ProducerWineView.as_view(), name='my-wines'),
     path('my-wines/<int:pk>/', ProducerWineDetailView.as_view(), name='my-wines-detail'),
+    # AI Chat endpoint
+    path('ai/chat/', ai_chat, name='ai_chat'),
 ]
