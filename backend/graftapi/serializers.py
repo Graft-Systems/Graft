@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.db import IntegrityError
@@ -12,34 +13,45 @@ class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ("username", "password", "role")
-        extra_kwargs = {"password": {"write_only": True}}
+        # Allow re-registering an existing username so we can finish profile setup
+        # (DRF's default UniqueValidator would block this before `create` runs).
+        extra_kwargs = {
+            "password": {"write_only": True},
+            "username": {"validators": []},
+        }
+
+    def validate_username(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Username is required.")
+        return value
 
     def create(self, validated_data):
         role = validated_data.pop("role")
         username = validated_data['username']
         password = validated_data['password']
-        try:
-            user = User.objects.create_user(username=username, password=password)
-            UserProfile.objects.create(user=user, role=role)
-            if role == 'producer' and not hasattr(user, 'producer_profile'):
-                # Create a minimal producer profile tied to this user so wine endpoints work
-                Producer.objects.create(user=user, name=username)
-        except IntegrityError:
-            user = User.objects.get(username=username)
-            # Check if completed
-            if role == 'producer' and Producer.objects.filter(name=username).exists():
-                raise serializers.ValidationError("Username already exists and profile is completed.")
-            # Else, allow update
-            user.set_password(password)
-            user.save()
-            if hasattr(user, 'profile'):
-                user.profile.role = role
-                user.profile.save()
+        with transaction.atomic():
+            user = User.objects.filter(username=username).first()
+
+            # Existing user: treat as re-registration / password reset
+            if user:
+                if role == 'producer' and Producer.objects.filter(user=user).exists():
+                    raise serializers.ValidationError("This username already has a completed producer profile.")
+                user.set_password(password)
+                user.save()
+                if hasattr(user, 'profile'):
+                    user.profile.role = role
+                    user.profile.save()
+                else:
+                    UserProfile.objects.create(user=user, role=role)
             else:
+                user = User.objects.create_user(username=username, password=password)
                 UserProfile.objects.create(user=user, role=role)
-            # Ensure producer profile exists when role is producer
+
+            # Ensure minimal producer profile exists so downstream endpoints work.
             if role == 'producer' and not hasattr(user, 'producer_profile'):
                 Producer.objects.create(user=user, name=username)
+
         return user
 
     def to_representation(self, instance):
@@ -64,8 +76,17 @@ class StoreSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = Store
-        fields = ('name', 'street_address')
-        read_only_fields = ('user',)
+        fields = [
+            'id',
+            'name',
+            'neighborhood',
+            'street_address',
+            'city',
+            'state',
+            'zip_code',
+            'contact_email',
+        ]
+        read_only_fields = ('id', 'user',)
 
 
 class WineSerializer(serializers.ModelSerializer):

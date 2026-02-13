@@ -19,6 +19,8 @@ class StorePlacementStatus(models.Model):
 
     class Meta:
         unique_together = ("store", "wine")
+        verbose_name = "Store Placement Status"
+        verbose_name_plural = "Store Placement Statuses"
 
     def __str__(self):
         return f"{self.store} - {self.wine}: {self.status}"
