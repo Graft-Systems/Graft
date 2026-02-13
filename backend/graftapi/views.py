@@ -92,17 +92,6 @@ class StoreProfileView(generics.CreateAPIView):
         serializer.save(user=self.request.user)
 
 
-class StoreProfileView(generics.CreateAPIView):
-    """
-    Handles store profile creation.
-    """
-    queryset = Store.objects.all()
-    serializer_class = StoreSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
 class ProducerWineView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -158,4 +147,74 @@ class ProducerWineDetailView(APIView):
         if not wine:
             return Response({"error": "Wine not found"}, status=status.HTTP_404_NOT_FOUND)
         wine.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class MyStoreView(APIView):
+    """
+    List and create stores for the logged-in retailer user.
+    Mirrors the wine endpoints but for Store objects.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """
+        GET /api/my-stores/
+        Return all stores associated with the logged-in user.
+        """
+        stores = Store.objects.filter(user=request.user)
+        serializer = StoreSerializer(stores, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        """
+        POST /api/my-stores/
+        Create a new store linked to the logged-in user.
+        """
+        serializer = StoreSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MyStoreDetailView(APIView):
+    """
+    Retrieve, update, or delete a specific store belonging to the logged-in user.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self, request, pk):
+        """
+        Helper to fetch a store only if it belongs to the current user.
+        """
+        return Store.objects.filter(user=request.user, pk=pk).first()
+
+    def put(self, request, pk):
+        """
+        PUT /api/my-stores/<pk>/
+        Update fields on a specific store.
+        """
+        store = self.get_object(request, pk)
+        if not store:
+            return Response({"error": "Store not found"}, status=status.HTTP_404_NOT_FOUND)
+        serializer = StoreSerializer(store, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def patch(self, request, pk):
+        # Treat PATCH the same as PUT for partial updates
+        return self.put(request, pk)
+
+    def delete(self, request, pk):
+        """
+        DELETE /api/my-stores/<pk>/
+        Remove a specific store.
+        """
+        store = self.get_object(request, pk)
+        if not store:
+            return Response({"error": "Store not found"}, status=status.HTTP_404_NOT_FOUND)
+        store.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

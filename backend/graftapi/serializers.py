@@ -76,8 +76,17 @@ class StoreSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = Store
-        fields = ('name', 'street_address')
-        read_only_fields = ('user',)
+        fields = [
+            'id',
+            'name',
+            'neighborhood',
+            'street_address',
+            'city',
+            'state',
+            'zip_code',
+            'contact_email',
+        ]
+        read_only_fields = ('id', 'user',)
 
 
 class WineSerializer(serializers.ModelSerializer):
