@@ -5,6 +5,12 @@ import sys
 
 
 def main():
+    import os
+    import dotenv
+    
+    # This loads the .env file from the same directory as manage.py
+    dotenv.load_dotenv()
+
     """Run administrative tasks."""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'graftapp.settings')
     try:

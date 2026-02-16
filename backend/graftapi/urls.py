@@ -10,6 +10,7 @@ from .views import (
     StoreProfileView,
     MyStoreView,
     MyStoreDetailView,
+    ai_chat
 )
 
 urlpatterns = [
