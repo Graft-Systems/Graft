@@ -10,6 +10,7 @@ from .views import (
     StoreProfileView,
     MyStoreView,
     MyStoreDetailView,
+    PurchasingInsightsView,
     ai_chat
 )
 
@@ -25,6 +26,7 @@ urlpatterns = [
     path("my-wines/<int:pk>/", ProducerWineDetailView.as_view(), name="my-wines-detail"),
     path("my-stores/", MyStoreView.as_view(), name="my-stores"),
     path("my-stores/<int:pk>/", MyStoreDetailView.as_view(), name="my-stores-detail"),
+    path("purchasing-insights/", PurchasingInsightsView.as_view(), name="purchasing-insights"),
     # AI Chat endpoint
     path('ai/chat/', ai_chat, name='ai_chat'),
 ]

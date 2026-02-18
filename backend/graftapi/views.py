@@ -11,6 +11,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import RegisterSerializer, ProducerSerializer, WineSerializer, StoreSerializer
 from .models.wine import Producer, Wine
 from .models.store import Store
+from .models.insights import StorePlacementStatus
 
 
 class RegisterView(generics.CreateAPIView):
@@ -217,6 +218,42 @@ class MyStoreDetailView(APIView):
             return Response({"error": "Store not found"}, status=status.HTTP_404_NOT_FOUND)
         store.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class PurchasingInsightsView(APIView):
+    """
+    Return purchasing insights for wines owned by the logged-in producer.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    STATUS_COPY = {
+        "active": "Strong sell-through",
+        "low": "Reorder risk",
+        "inactive": "Needs activation",
+    }
+
+    def get(self, request):
+        try:
+            producer = request.user.producer_profile
+        except Producer.DoesNotExist:
+            return Response({"error": "Producer profile not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        statuses = (
+            StorePlacementStatus.objects
+            .filter(wine__producer=producer)
+            .select_related("store", "wine")
+            .order_by("status", "-estimated_bottles", "store__name", "wine__name")
+        )
+
+        payload = [
+            {
+                "id": status.id,
+                "product": f"{status.store.name} • {status.wine.name}",
+                "freq": self.STATUS_COPY.get(status.status, status.status.title()),
+            }
+            for status in statuses
+        ]
+        return Response(payload, status=status.HTTP_200_OK)
 
 
 
