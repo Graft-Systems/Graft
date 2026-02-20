@@ -97,14 +97,14 @@ class ProducerWineView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        # Fetch wines belonging to the logged-in user's producer profile
         try:
             producer = request.user.producer_profile
             wines = Wine.objects.filter(producer=producer)
             serializer = WineSerializer(wines, many=True)
             return Response(serializer.data)
         except Producer.DoesNotExist:
-            return Response({"error": "Producer profile not found"}, status=404)
+            # Return an empty list instead of a 404 error
+            return Response([], status=status.HTTP_200_OK)
 
     def post(self, request):
         producer = request.user.producer_profile
@@ -236,8 +236,9 @@ class PurchasingInsightsView(APIView):
         try:
             producer = request.user.producer_profile
         except Producer.DoesNotExist:
-            return Response({"error": "Producer profile not found"}, status=status.HTTP_404_NOT_FOUND)
-
+            # Return an empty list instead of a 404 error
+            return Response([], status=status.HTTP_200_OK)
+        
         statuses = (
             StorePlacementStatus.objects
             .filter(wine__producer=producer)
