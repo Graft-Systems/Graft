@@ -5,6 +5,9 @@ from django.db import IntegrityError
 from .models import UserProfile, Producer
 from .models.wine import Wine
 from .models.store import Store, StoreChain
+from .models.pricing import WholesalePrice
+from .models.contacts import RetailContact, LocationRequest
+from .models.marketing import MarketingMaterial
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -115,3 +118,34 @@ class WineSerializer(serializers.ModelSerializer):
         if value and (value < 1700 or value > current_year + 5):
             raise serializers.ValidationError("Please enter a valid vintage year.")
         return value
+
+
+class WholesalePriceSerializer(serializers.ModelSerializer):
+    store_name = serializers.ReadOnlyField(source='store.name')
+    wine_name = serializers.ReadOnlyField(source='wine.name')
+
+    class Meta:
+        model = WholesalePrice
+        fields = ['id', 'store', 'store_name', 'wine', 'wine_name', 'price', 'date_effective']
+        read_only_fields = ['id']
+
+
+class RetailContactSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RetailContact
+        fields = ['id', 'store_name', 'contact_name', 'email', 'phone', 'last_contact_date', 'notes']
+        read_only_fields = ['id']
+
+
+class LocationRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LocationRequest
+        fields = ['id', 'store_name', 'neighborhood', 'city', 'state', 'stage', 'fit_score', 'notes', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+
+class MarketingMaterialSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MarketingMaterial
+        fields = ['id', 'category', 'prompt_used', 'generated_content', 'created_at']
+        read_only_fields = ['id', 'created_at']

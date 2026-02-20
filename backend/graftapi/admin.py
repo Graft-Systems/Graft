@@ -1,7 +1,8 @@
 from django.contrib import admin
 from .models import (
-    UserProfile, Producer, Wine, StoreChain, Store, 
-    Delivery, RetailSale, StorePlacementStatus, InventorySnapshot
+    UserProfile, Producer, Wine, StoreChain, Store,
+    Delivery, RetailSale, StorePlacementStatus, InventorySnapshot,
+    WholesalePrice, RetailContact, LocationRequest, MarketingMaterial
 )
 
 # --- USER PROFILES ---
@@ -73,3 +74,35 @@ class InventorySnapshotAdmin(admin.ModelAdmin):
     list_display = ("snapshot_date", "store", "wine", "bottles_on_hand")
     list_filter = ("snapshot_date", "store", "wine")
     date_hierarchy = "snapshot_date"
+
+# --- PRICING ---
+
+@admin.register(WholesalePrice)
+class WholesalePriceAdmin(admin.ModelAdmin):
+    list_display = ("wine", "store", "price", "date_effective")
+    list_filter = ("store", "wine")
+    search_fields = ("store__name", "wine__name")
+    date_hierarchy = "date_effective"
+
+# --- CONTACTS & LOCATION REQUESTS ---
+
+@admin.register(RetailContact)
+class RetailContactAdmin(admin.ModelAdmin):
+    list_display = ("store_name", "contact_name", "email", "phone", "last_contact_date")
+    list_filter = ("producer",)
+    search_fields = ("store_name", "contact_name", "email")
+
+@admin.register(LocationRequest)
+class LocationRequestAdmin(admin.ModelAdmin):
+    list_display = ("store_name", "producer", "stage", "fit_score", "created_at")
+    list_filter = ("stage", "producer")
+    search_fields = ("store_name", "city")
+    list_editable = ("stage",)
+
+# --- MARKETING ---
+
+@admin.register(MarketingMaterial)
+class MarketingMaterialAdmin(admin.ModelAdmin):
+    list_display = ("producer", "category", "created_at")
+    list_filter = ("category", "producer")
+    search_fields = ("prompt_used",)

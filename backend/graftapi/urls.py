@@ -11,7 +11,17 @@ from .views import (
     MyStoreView,
     MyStoreDetailView,
     PurchasingInsightsView,
-    ai_chat
+    ai_chat,
+    ProducerSummaryView,
+    OrderingPredictionsView,
+    PricingAnalyticsView,
+    TargetingInsightsView,
+    LocationRequestView,
+    LocationRequestDetailView,
+    RetailContactView,
+    RetailContactDetailView,
+    generate_marketing,
+    MarketingHistoryView,
 )
 
 urlpatterns = [
@@ -21,12 +31,23 @@ urlpatterns = [
     path("store-profile/", StoreProfileView.as_view(), name="store_profile"),
     path("token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-    # Mounted under /api/ at the project level, so this should be /my-wines/
+    # Mounted under /api/ at the project level
     path("my-wines/", ProducerWineView.as_view(), name="my-wines"),
     path("my-wines/<int:pk>/", ProducerWineDetailView.as_view(), name="my-wines-detail"),
     path("my-stores/", MyStoreView.as_view(), name="my-stores"),
     path("my-stores/<int:pk>/", MyStoreDetailView.as_view(), name="my-stores-detail"),
     path("purchasing-insights/", PurchasingInsightsView.as_view(), name="purchasing-insights"),
     # AI Chat endpoint
-    path('ai/chat/', ai_chat, name='ai_chat'),
+    path("ai/chat/", ai_chat, name="ai_chat"),
+    # Producer dashboard endpoints
+    path("producer-summary/", ProducerSummaryView.as_view(), name="producer-summary"),
+    path("ordering-predictions/", OrderingPredictionsView.as_view(), name="ordering-predictions"),
+    path("pricing-analytics/", PricingAnalyticsView.as_view(), name="pricing-analytics"),
+    path("targeting-insights/", TargetingInsightsView.as_view(), name="targeting-insights"),
+    path("location-requests/", LocationRequestView.as_view(), name="location-requests"),
+    path("location-requests/<int:pk>/", LocationRequestDetailView.as_view(), name="location-requests-detail"),
+    path("retail-contacts/", RetailContactView.as_view(), name="retail-contacts"),
+    path("retail-contacts/<int:pk>/", RetailContactDetailView.as_view(), name="retail-contacts-detail"),
+    path("marketing/generate/", generate_marketing, name="marketing-generate"),
+    path("marketing/history/", MarketingHistoryView.as_view(), name="marketing-history"),
 ]
