@@ -78,6 +78,15 @@ body {
   font-family: var(--font-titillium), sans-serif;
 }
 
+/* Ensure form inputs have consistent, readable text across all browsers */
+input, textarea, select {
+  color: #171717;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #6b7280;
+}
+
 /* Simple fade + slide animations */
 
 @keyframes fadeIn {

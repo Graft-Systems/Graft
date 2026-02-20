@@ -133,7 +133,7 @@ export default function YourWinesPanel() {
                     />
                     <div className="col-span-2 flex gap-2">
                         <button type="submit" className="px-4 py-2 rounded-md" style={{ backgroundColor: "#9f1239", color: "#ffffff" }}>Save Wine</button>
-                        <button type="button" onClick={() => setShowAddForm(false)} style={{ color: "#737373" }}>Cancel</button>
+                        <button type="button" onClick={() => setShowAddForm(false)} style={{ color: "#374151" }}>Cancel</button>
                     </div>
                 </form>
             )}
@@ -177,7 +177,7 @@ export default function YourWinesPanel() {
                                         <button
                                             type="button"
                                             onClick={() => { setEditingWineId(null); setEditWine({ name: "", varietal: "", vintage: "", region: "" }); }}
-                                            style={{ color: "#737373" }}
+                                            style={{ color: "#374151" }}
                                         >
                                             Cancel
                                         </button>
@@ -191,7 +191,7 @@ export default function YourWinesPanel() {
                                         </div>
                                         <div>
                                             <h4 className="font-bold" style={{ color: "#171717" }}>{wine.name}</h4>
-                                            <p className="text-sm" style={{ color: "#737373" }}>{wine.vintage ?? "NV"} {wine.varietal} • {wine.region}</p>
+                                            <p className="text-sm" style={{ color: "#374151" }}>{wine.vintage ?? "NV"} {wine.varietal} • {wine.region}</p>
                                         </div>
                                     </div>
                                     <button

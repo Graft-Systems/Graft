@@ -21,7 +21,7 @@ export default function SummaryCards() {
                     className="p-5 rounded-xl shadow-sm"
                     style={{ backgroundColor: "#ffffff", borderLeft: "4px solid #9f1239" }}
                 >
-                    <p className="text-sm font-medium uppercase tracking-wider" style={{ color: "#737373" }}>
+                    <p className="text-sm font-medium uppercase tracking-wider" style={{ color: "#374151" }}>
                         {stat.label}
                     </p>
                     <div className="flex items-end justify-between mt-2">

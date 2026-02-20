@@ -171,7 +171,7 @@ export default function StoreDistributionPanel() {
                     />
                     <div className="col-span-2 flex gap-2">
                         <button type="submit" className="px-4 py-2 rounded-md" style={{ backgroundColor: "#9f1239", color: "#ffffff" }}>Save Store</button>
-                        <button type="button" onClick={() => setShowAddForm(false)} style={{ color: "#737373" }}>Cancel</button>
+                        <button type="button" onClick={() => setShowAddForm(false)} style={{ color: "#374151" }}>Cancel</button>
                     </div>
                 </form>
             )}
@@ -182,7 +182,7 @@ export default function StoreDistributionPanel() {
                 <div className="grid grid-cols-1 gap-3">
                     {stores.length === 0 ? (
                         <div className="p-8 text-center rounded-xl" style={{ backgroundColor: "#fafafa", border: "1px solid #ffe4e6" }}>
-                            <p style={{ color: "#737373" }}>No stores found. Add your first store to get started.</p>
+                            <p style={{ color: "#374151" }}>No stores found. Add your first store to get started.</p>
                         </div>
                     ) : (
                         stores.map((store) => (
@@ -238,7 +238,7 @@ export default function StoreDistributionPanel() {
                                             <button
                                                 type="button"
                                                 onClick={() => { setEditingStoreId(null); setEditStore({ name: "", neighborhood: "", street_address: "", city: "", state: "", zip_code: "", contact_email: "" }); }}
-                                                style={{ color: "#737373" }}
+                                                style={{ color: "#374151" }}
                                             >
                                                 Cancel
                                             </button>
@@ -252,7 +252,7 @@ export default function StoreDistributionPanel() {
                                             </div>
                                             <div>
                                                 <h4 className="font-bold" style={{ color: "#171717" }}>{store.name}</h4>
-                                                <p className="text-sm" style={{ color: "#737373" }}>
+                                                <p className="text-sm" style={{ color: "#374151" }}>
                                                     {store.neighborhood && `${store.neighborhood} • `}
                                                     {store.city && store.state ? `${store.city}, ${store.state}` : store.city || store.state}
                                                     {store.bottles !== undefined && ` • ${store.bottles} bottles`}

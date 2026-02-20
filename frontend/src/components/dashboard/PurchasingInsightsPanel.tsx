@@ -40,7 +40,7 @@ export default function PurchasingInsightsPanel() {
                 <div className="grid grid-cols-1 gap-3">
                     {insights.length === 0 ? (
                         <div className="p-8 text-center rounded-xl" style={{ backgroundColor: "#fafafa", border: "1px solid #ffe4e6" }}>
-                            <p style={{ color: "#737373" }}>
+                            <p style={{ color: "#374151" }}>
                                 No purchasing insights yet. Add store placement status data to generate insights.
                             </p>
                         </div>
@@ -59,7 +59,7 @@ export default function PurchasingInsightsPanel() {
                                         <h4 className="font-bold" style={{ color: "#171717" }}>
                                             {insight.product}
                                         </h4>
-                                        <p className="text-sm" style={{ color: "#737373" }}>
+                                        <p className="text-sm" style={{ color: "#374151" }}>
                                             {insight.freq}
                                         </p>
                                     </div>

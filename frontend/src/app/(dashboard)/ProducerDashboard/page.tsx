@@ -24,7 +24,7 @@ export default function ProducerDashboard() {
                 {/* Header Section */}
                 <header className="flex flex-col gap-1">
                     <h1 className="text-3xl font-bold" style={{ color: "#171717" }}>Producer Overview</h1>
-                    <p style={{ color: "#737373" }}>Real-time distribution and sales intelligence.</p>
+                    <p style={{ color: "#374151" }}>Real-time distribution and sales intelligence.</p>
                 </header>
 
                 {/* Top Level Summary - The First Thing Users See */}
