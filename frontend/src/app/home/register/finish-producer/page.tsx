@@ -128,7 +128,7 @@ export default function FinishProducerPage() {
         setLoading(true);
         setError('');
         try {
-            await api.post("producer-profile/", {
+            await api.post("/producer-profile/", {
                 name: formData.name,
                 region: formData.region,
                 contact_email: formData.contactEmail,

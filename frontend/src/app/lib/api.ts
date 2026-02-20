@@ -1,7 +1,11 @@
 import axios from "axios";
 
+const configuredBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+const defaultBaseUrl = "http://127.0.0.1:8000/api";
+const baseURL = (configuredBaseUrl || defaultBaseUrl).replace(/\/+$/, "");
+
 const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_BASE_URL, // Django backend URL
+    baseURL,
     headers: {
         "Content-Type": "application/json",
     },

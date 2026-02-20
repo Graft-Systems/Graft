@@ -134,7 +134,7 @@ export default function FinishRetailerPage() {
         setLoading(true);
         setError('');
         try {
-            await api.post("store-profile/", {
+            await api.post("/store-profile/", {
                 name: formData.storeName,
                 street_address: formData.storeAddress,
             });

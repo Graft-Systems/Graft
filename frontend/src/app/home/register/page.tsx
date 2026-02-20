@@ -20,11 +20,11 @@ export default function RegisterPage() {
         setLoading(true);
 
         try {
-            const res = await api.post("register/", { username, password, role });
+            const res = await api.post("/register/", { username, password, role });
             setMessage("Registration successful! Logging in...");
 
             // Now login the user
-            const loginRes = await api.post("login/", { username, password });
+            const loginRes = await api.post("/login/", { username, password });
             const { access, refresh, is_staff, role: userRole } = loginRes.data;
 
             localStorage.setItem("access", access);

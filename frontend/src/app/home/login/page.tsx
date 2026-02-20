@@ -15,7 +15,7 @@ export default function LoginPage() {
         setError("");
 
         try {
-            const res = await api.post("login/", { username, password });
+            const res = await api.post("/login/", { username, password });
             const { access, refresh, is_staff, role } = res.data;
 
             localStorage.setItem("access", access);
