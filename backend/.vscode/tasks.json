@@ -1,0 +1,13 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run Django Backend",
+			"type": "shell",
+			"command": "python manage.py runserver 0.0.0.0:8000",
+			"args": [],
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}
