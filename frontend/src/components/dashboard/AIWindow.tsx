@@ -136,12 +136,14 @@ export default function AIWindow() {
                           ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2" {...props} />,
                           ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2" {...props} />,
                           li: ({node, ...props}) => <li className="ml-2" {...props} />,
-                          code: ({node, inline, ...props}) =>
-                            inline ? (
+                          code: ({node, className, ...props}) => {
+                            const isInline = !className;
+                            return isInline ? (
                               <code className="bg-gray-200 px-1 rounded text-xs" {...props} />
                             ) : (
                               <code className="block bg-gray-200 p-2 rounded text-xs overflow-x-auto mb-2" {...props} />
-                            ),
+                            );
+                          },
                           blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-gray-400 pl-2 italic mb-2" {...props} />,
                           table: ({node, ...props}) => <table className="border-collapse border border-gray-400 mb-2 text-xs" {...props} />,
                           th: ({node, ...props}) => <th className="border border-gray-400 px-2 py-1 bg-gray-200" {...props} />,
