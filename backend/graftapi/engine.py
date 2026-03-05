@@ -1,17 +1,21 @@
 """
 AI Engine for Graft Systems
-Handles communication with AI API providers
+Powered by LangChain - Handles communication with AI API providers
 """
 
 import os
-import requests
 from typing import Optional
+
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 
 class AIEngine:
     """
-    Base AI Engine class for handling AI API calls
-    Supports multiple AI providers (OpenAI, Anthropic, etc.)
+    LangChain-powered AI Engine for handling AI API calls
+    Supports multiple AI providers (OpenAI, Anthropic, Google)
     """
 
     def __init__(self):
@@ -19,9 +23,54 @@ class AIEngine:
         self.provider = os.getenv("AI_PROVIDER", "openai").lower()
         self.api_key = os.getenv("AI_API_KEY", None)
         self.model = os.getenv("AI_MODEL", "gpt-3.5-turbo")
+        self.temperature = float(os.getenv("AI_TEMPERATURE", "0.7"))
+        self.max_tokens = int(os.getenv("AI_MAX_TOKENS", "500"))
         
         if not self.api_key:
             raise ValueError("AI_API_KEY environment variable not set. Please configure your AI API key.")
+        
+        # Initialize the appropriate chat model
+        self.chat_model = self._initialize_chat_model()
+
+    def _initialize_chat_model(self):
+        """
+        Initialize the appropriate LangChain ChatModel based on provider
+        """
+        if self.provider == "openai":
+            return ChatOpenAI(
+                api_key=self.api_key,
+                model=self.model,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+            )
+        elif self.provider == "anthropic":
+            return ChatAnthropic(
+                api_key=self.api_key,
+                model=self.model,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+            )
+        elif self.provider == "google":
+            return ChatGoogleGenerativeAI(
+                google_api_key=self.api_key,
+                model=self.model,
+                temperature=self.temperature,
+                max_output_tokens=self.max_tokens,
+            )
+        else:
+            raise ValueError(f"Unsupported AI provider: {self.provider}")
+
+    def _format_context(self, context: Optional[dict] = None) -> str:
+        """
+        Format context dictionary into a string
+        """
+        if not context:
+            return ""
+        
+        context_str = "\n\nUser Context:\n"
+        for key, value in context.items():
+            context_str += f"- {key}: {value}\n"
+        return context_str
 
     def get_statistics_insights(self, user_message: str, context: Optional[dict] = None) -> str:
         """
@@ -35,131 +84,45 @@ class AIEngine:
             AI-generated response
         """
         
-        system_prompt = """You are a helpful analytics assistant for Graft Systems, 
-a wine distribution and retail analytics platform. 
-Your role is to help users understand their wine distribution, inventory, and sales statistics.
-Provide clear, actionable insights based on their data and questions.
-Ask clarifying questions if needed. Be concise and professional."""
+        system_prompt = """# Graft Systems Analytics Assistant
 
-        if self.provider == "openai":
-            return self._call_openai(user_message, system_prompt, context)
-        elif self.provider == "anthropic":
-            return self._call_anthropic(user_message, system_prompt, context)
-        elif self.provider == "google":
-            return self._call_google(user_message, system_prompt, context)
-        else:
-            raise ValueError(f"Unsupported AI provider: {self.provider}")
+        You are a helpful analytics assistant for **Graft Systems**, a wine distribution and retail analytics platform.
 
-    def _call_openai(self, user_message: str, system_prompt: str, context: Optional[dict] = None) -> str:
-        """
-        Call OpenAI API
-        """
-        url = "https://api.openai.com/v1/chat/completions"
-        
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
-        
-        # Build context string if provided
-        context_str = ""
-        if context:
-            context_str = "\n\nUser Context:\n"
-            for key, value in context.items():
-                context_str += f"- {key}: {value}\n"
-        
-        payload = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"{user_message}{context_str}"},
-            ],
-            "temperature": 0.7,
-            "max_tokens": 500,
-        }
-        
-        response = requests.post(url, json=payload, headers=headers, timeout=30)
-        response.raise_for_status()
-        
-        data = response.json()
-        return data["choices"][0]["message"]["content"]
+        ## Your Role
+        Help users understand their:
+        - Wine distribution metrics
+        - Inventory levels and trends
+        - Sales statistics and performance
 
-    def _call_anthropic(self, user_message: str, system_prompt: str, context: Optional[dict] = None) -> str:
-        """
-        Call Anthropic (Claude) API
-        """
-        url = "https://api.anthropic.com/v1/messages"
-        
-        headers = {
-            "x-api-key": self.api_key,
-            "anthropic-version": "2023-06-01",
-            "Content-Type": "application/json",
-        }
-        
-        # Build context string if provided
-        context_str = ""
-        if context:
-            context_str = "\n\nUser Context:\n"
-            for key, value in context.items():
-                context_str += f"- {key}: {value}\n"
-        
-        payload = {
-            "model": self.model,
-            "max_tokens": 500,
-            "system": system_prompt,
-            "messages": [
-                {"role": "user", "content": f"{user_message}{context_str}"},
-            ],
-        }
-        
-        response = requests.post(url, json=payload, headers=headers, timeout=30)
-        response.raise_for_status()
-        
-        data = response.json()
-        return data["content"][0]["text"]
+        ## Guidelines
+        1. **Provide clear, actionable insights** based on user data and questions
+        2. **Ask clarifying questions** if needed to better understand requests
+        3. **Be concise and professional** in all responses
+        4. **Use structured formatting** with headers, lists, and tables where appropriate
+        5. **Highlight key metrics** and trends with emphasis
 
-    def _call_google(self, user_message: str, system_prompt: str, context: Optional[dict] = None) -> str:
-        """
-        Call Google Gemini API
-        """
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
+        ## Response Format
+        - Use **bold** for important metrics and findings
+        - Use `code` for specific values or fields
+        - Use bullet points and numbered lists for clarity
+        - Use tables for comparing multiple data points"""
+
+        # Create a LangChain prompt template
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", system_prompt),
+            ("human", "{input}")
+        ])
         
-        headers = {
-            "Content-Type": "application/json",
-        }
+        # Format context if provided
+        context_str = self._format_context(context)
+        full_input = f"{user_message}{context_str}"
         
-        # Build context string if provided
-        context_str = ""
-        if context:
-            context_str = "\n\nUser Context:\n"
-            for key, value in context.items():
-                context_str += f"- {key}: {value}\n"
+        # Create and invoke the chain
+        chain = prompt | self.chat_model
+        response = chain.invoke({"input": full_input})
         
-        payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {"text": f"{system_prompt}\n\n{user_message}{context_str}"}
-                    ]
-                }
-            ],
-            "generationConfig": {
-                "temperature": 0.7,
-                "maxOutputTokens": 500,
-            }
-        }
-        
-        response = requests.post(
-            url,
-            json=payload,
-            headers=headers,
-            params={"key": self.api_key},
-            timeout=30
-        )
-        response.raise_for_status()
-        
-        data = response.json()
-        return data["candidates"][0]["content"]["parts"][0]["text"]
+        # Extract the text content from the response
+        return response.content
 
 
 # Initialize engine instance (will be called by views)

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Send } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 
 type Message = {
   id: string;
@@ -122,7 +123,35 @@ export default function AIWindow() {
                       : "bg-gray-300 text-gray-900 rounded-bl-none"
                   }`}
                 >
-                  <p className="break-words">{message.content}</p>
+                  {message.role === "user" ? (
+                    <p className="break-words">{message.content}</p>
+                  ) : (
+                    <div className="prose prose-sm max-w-none break-words">
+                      <ReactMarkdown
+                        components={{
+                          h1: ({node, ...props}) => <h1 className="text-lg font-bold mt-2 mb-1" {...props} />,
+                          h2: ({node, ...props}) => <h2 className="text-base font-bold mt-2 mb-1" {...props} />,
+                          h3: ({node, ...props}) => <h3 className="text-sm font-bold mt-1 mb-1" {...props} />,
+                          p: ({node, ...props}) => <p className="mb-2" {...props} />,
+                          ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2" {...props} />,
+                          ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2" {...props} />,
+                          li: ({node, ...props}) => <li className="ml-2" {...props} />,
+                          code: ({node, inline, ...props}) =>
+                            inline ? (
+                              <code className="bg-gray-200 px-1 rounded text-xs" {...props} />
+                            ) : (
+                              <code className="block bg-gray-200 p-2 rounded text-xs overflow-x-auto mb-2" {...props} />
+                            ),
+                          blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-gray-400 pl-2 italic mb-2" {...props} />,
+                          table: ({node, ...props}) => <table className="border-collapse border border-gray-400 mb-2 text-xs" {...props} />,
+                          th: ({node, ...props}) => <th className="border border-gray-400 px-2 py-1 bg-gray-200" {...props} />,
+                          td: ({node, ...props}) => <td className="border border-gray-400 px-2 py-1" {...props} />,
+                        }}
+                      >
+                        {message.content}
+                      </ReactMarkdown>
+                    </div>
+                  )}
                   <span className="text-xs opacity-70 mt-1 block">
                     {message.timestamp.toLocaleTimeString([], {
                       hour: "2-digit",
