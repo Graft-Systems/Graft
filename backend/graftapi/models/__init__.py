@@ -7,3 +7,8 @@ from .insights import StorePlacementStatus
 from .pricing import WholesalePrice
 from .contacts import RetailContact, LocationRequest
 from .marketing import MarketingMaterial
+from .vigil import (
+    Vineyard, VineyardBlock, ScanSession, GrapeCluster,
+    PestDiseaseDetection, WeatherData, IrrigationLog,
+    GrapeSpeciesProfile, YieldEstimate,
+)

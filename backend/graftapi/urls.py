@@ -23,6 +23,23 @@ from .views import (
     generate_marketing,
     MarketingHistoryView,
 )
+from .views_vigil import (
+    VineyardView,
+    VineyardDetailView,
+    VineyardBlockView,
+    VineyardBlockDetailView,
+    ScanSessionView,
+    ScanSessionDetailView,
+    GrapeClusterView,
+    PestDiseaseDetectionView,
+    WeatherDataView,
+    IrrigationLogView,
+    IrrigationLogDetailView,
+    GrapeSpeciesProfileView,
+    YieldEstimateView,
+    YieldEstimateDetailView,
+    VigilDashboardSummaryView,
+)
 
 urlpatterns = [
     path("register/", RegisterView.as_view(), name="register"),
@@ -50,4 +67,20 @@ urlpatterns = [
     path("retail-contacts/<int:pk>/", RetailContactDetailView.as_view(), name="retail-contacts-detail"),
     path("marketing/generate/", generate_marketing, name="marketing-generate"),
     path("marketing/history/", MarketingHistoryView.as_view(), name="marketing-history"),
+    # VIGIL endpoints
+    path("vigil/summary/", VigilDashboardSummaryView.as_view(), name="vigil-summary"),
+    path("vigil/vineyards/", VineyardView.as_view(), name="vigil-vineyards"),
+    path("vigil/vineyards/<int:pk>/", VineyardDetailView.as_view(), name="vigil-vineyards-detail"),
+    path("vigil/blocks/", VineyardBlockView.as_view(), name="vigil-blocks"),
+    path("vigil/blocks/<int:pk>/", VineyardBlockDetailView.as_view(), name="vigil-blocks-detail"),
+    path("vigil/scans/", ScanSessionView.as_view(), name="vigil-scans"),
+    path("vigil/scans/<int:pk>/", ScanSessionDetailView.as_view(), name="vigil-scans-detail"),
+    path("vigil/clusters/", GrapeClusterView.as_view(), name="vigil-clusters"),
+    path("vigil/pest-detections/", PestDiseaseDetectionView.as_view(), name="vigil-pest-detections"),
+    path("vigil/weather/", WeatherDataView.as_view(), name="vigil-weather"),
+    path("vigil/irrigation/", IrrigationLogView.as_view(), name="vigil-irrigation"),
+    path("vigil/irrigation/<int:pk>/", IrrigationLogDetailView.as_view(), name="vigil-irrigation-detail"),
+    path("vigil/species-profiles/", GrapeSpeciesProfileView.as_view(), name="vigil-species-profiles"),
+    path("vigil/yield-estimates/", YieldEstimateView.as_view(), name="vigil-yield-estimates"),
+    path("vigil/yield-estimates/<int:pk>/", YieldEstimateDetailView.as_view(), name="vigil-yield-estimates-detail"),
 ]
