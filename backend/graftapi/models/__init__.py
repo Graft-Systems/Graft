@@ -10,5 +10,6 @@ from .marketing import MarketingMaterial
 from .vigil import (
     Vineyard, VineyardBlock, ScanSession, GrapeCluster,
     PestDiseaseDetection, WeatherData, IrrigationLog,
-    GrapeSpeciesProfile, YieldEstimate,
+    GrapeSpeciesProfile, YieldEstimate, VigilMLModelVersion,
+    VigilTrainingSample, VigilInferenceResult,
 )

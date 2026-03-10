@@ -8,6 +8,9 @@ interface VigilSummary {
     total_vineyards: number;
     total_blocks: number;
     total_scan_sessions: number;
+    training_sample_count: number;
+    trained_model_count: number;
+    prediction_count: number;
     avg_yield_estimate_base_tons_per_acre: number | null;
     active_pest_disease_alerts: number;
     weather_forecast_summary: {
@@ -94,6 +97,24 @@ export default function VigilSummaryCards() {
                 : "\u2014",
             accent: "#9f1239",
             icon: <BarChart3 size={20} />,
+        },
+        {
+            label: "Training Samples",
+            value: String(summary.training_sample_count),
+            accent: "#0f766e",
+            icon: <Grape size={20} />,
+        },
+        {
+            label: "Ready Models",
+            value: String(summary.trained_model_count),
+            accent: "#1d4ed8",
+            icon: <BarChart3 size={20} />,
+        },
+        {
+            label: "Predictions Saved",
+            value: String(summary.prediction_count),
+            accent: "#7c3aed",
+            icon: <ScanLine size={20} />,
         },
         {
             label: "Pest/Disease Alerts",

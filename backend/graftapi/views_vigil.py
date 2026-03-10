@@ -1,9 +1,11 @@
+import json
 from datetime import timedelta
 
 from django.db.models import Avg, Count, Sum, Q
 from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework import status, permissions
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
@@ -17,6 +19,9 @@ from .serializers_vigil import (
     IrrigationLogSerializer,
     GrapeSpeciesProfileSerializer,
     YieldEstimateSerializer,
+    VigilTrainingSampleSerializer,
+    VigilMLModelVersionSerializer,
+    VigilInferenceResultSerializer,
 )
 from .models.vigil import (
     Vineyard,
@@ -28,8 +33,12 @@ from .models.vigil import (
     IrrigationLog,
     GrapeSpeciesProfile,
     YieldEstimate,
+    VigilTrainingSample,
+    VigilMLModelVersion,
+    VigilInferenceResult,
 )
 from .models.wine import Producer
+from .vigil_engine import VigilMLEngine
 
 
 # ---------------------------------------------------------------------------
@@ -42,6 +51,30 @@ def _get_producer(request):
         return request.user.producer_profile
     except Producer.DoesNotExist:
         return None
+
+
+def _parse_json_field(data, key, default):
+    value = data.get(key, default)
+    if value in (None, "", default):
+        return default
+    if isinstance(value, (dict, list)):
+        return value
+    try:
+        return json.loads(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _get_owned_block(producer, block_id):
+    if not block_id:
+        return None
+    return VineyardBlock.objects.filter(pk=block_id, vineyard__producer=producer).first()
+
+
+def _get_owned_scan(producer, scan_session_id):
+    if not scan_session_id:
+        return None
+    return ScanSession.objects.filter(pk=scan_session_id, block__vineyard__producer=producer).first()
 
 
 # ---------------------------------------------------------------------------
@@ -662,6 +695,9 @@ class VigilDashboardSummaryView(APIView):
             "total_vineyards": total_vineyards,
             "total_blocks": total_blocks,
             "total_scan_sessions": total_scan_sessions,
+            "training_sample_count": VigilTrainingSample.objects.filter(producer=producer).count(),
+            "trained_model_count": VigilMLModelVersion.objects.filter(producer=producer, status="ready").count(),
+            "prediction_count": VigilInferenceResult.objects.filter(producer=producer).count(),
             "latest_scan": latest_scan_data,
             "avg_yield_estimate_base_tons_per_acre": (
                 round(float(avg_yield), 3) if avg_yield is not None else None
@@ -670,3 +706,255 @@ class VigilDashboardSummaryView(APIView):
             "weather_forecast_summary": weather_forecast_summary,
         }
         return Response(payload, status=status.HTTP_200_OK)
+
+
+# ---------------------------------------------------------------------------
+# VIGIL ML Training Samples
+# ---------------------------------------------------------------------------
+
+class VigilTrainingSampleView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get(self, request):
+        producer = _get_producer(request)
+        if not producer:
+            return Response([], status=status.HTTP_200_OK)
+        block_id = request.query_params.get("block_id")
+        samples = VigilTrainingSample.objects.filter(producer=producer)
+        if block_id:
+            samples = samples.filter(block_id=block_id)
+        serializer = VigilTrainingSampleSerializer(samples, many=True, context={"request": request})
+        return Response(serializer.data)
+
+    def post(self, request):
+        producer = _get_producer(request)
+        if not producer:
+            return Response({"error": "Producer profile required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        block = _get_owned_block(producer, request.data.get("block"))
+        if request.data.get("block") and not block:
+            return Response({"error": "Block not found or does not belong to you"}, status=status.HTTP_400_BAD_REQUEST)
+
+        scan_session = _get_owned_scan(producer, request.data.get("scan_session"))
+        if request.data.get("scan_session") and not scan_session:
+            return Response({"error": "Scan session not found or does not belong to you"}, status=status.HTTP_400_BAD_REQUEST)
+
+        data = request.data.copy()
+        data["metadata"] = json.dumps(_parse_json_field(request.data, "metadata", {}))
+        if not data.get("grape_species") and block:
+            data["grape_species"] = block.grape_species
+
+        serializer = VigilTrainingSampleSerializer(data=data, context={"request": request})
+        if serializer.is_valid():
+            serializer.save(producer=producer, block=block, scan_session=scan_session)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class VigilTrainingSampleDetailView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self, request, pk):
+        producer = _get_producer(request)
+        if not producer:
+            return None
+        return VigilTrainingSample.objects.filter(producer=producer, pk=pk).first()
+
+    def get(self, request, pk):
+        sample = self.get_object(request, pk)
+        if not sample:
+            return Response({"error": "Training sample not found"}, status=status.HTTP_404_NOT_FOUND)
+        serializer = VigilTrainingSampleSerializer(sample, context={"request": request})
+        return Response(serializer.data)
+
+    def delete(self, request, pk):
+        sample = self.get_object(request, pk)
+        if not sample:
+            return Response({"error": "Training sample not found"}, status=status.HTTP_404_NOT_FOUND)
+        sample.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ---------------------------------------------------------------------------
+# VIGIL ML Models and Inference
+# ---------------------------------------------------------------------------
+
+class VigilMLModelVersionView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        producer = _get_producer(request)
+        if not producer:
+            return Response([], status=status.HTTP_200_OK)
+        active_only = request.query_params.get("active_only") == "true"
+        models = VigilMLModelVersion.objects.filter(producer=producer)
+        if active_only:
+            models = models.filter(is_active=True)
+        serializer = VigilMLModelVersionSerializer(models, many=True)
+        return Response(serializer.data)
+
+
+class VigilModelTrainView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        producer = _get_producer(request)
+        if not producer:
+            return Response({"error": "Producer profile required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        model_name = request.data.get("name") or "Cluster Volume Model"
+        block_id = request.data.get("block_id")
+        sample_ids = request.data.get("sample_ids") or []
+        if isinstance(sample_ids, str):
+            try:
+                sample_ids = json.loads(sample_ids)
+            except ValueError:
+                sample_ids = []
+
+        samples = VigilTrainingSample.objects.filter(producer=producer)
+        if block_id:
+            samples = samples.filter(block_id=block_id)
+        if sample_ids:
+            samples = samples.filter(id__in=sample_ids)
+
+        sample_count = samples.count()
+        if sample_count < VigilMLEngine.min_samples:
+            return Response(
+                {"error": f"At least {VigilMLEngine.min_samples} training samples are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        last_model = VigilMLModelVersion.objects.filter(producer=producer, name=model_name).order_by("-version").first()
+        next_version = (last_model.version + 1) if last_model else 1
+
+        model_version = VigilMLModelVersion.objects.create(
+            producer=producer,
+            name=model_name,
+            version=next_version,
+            status="training",
+            notes=request.data.get("notes", ""),
+            is_active=bool(request.data.get("is_active", True)),
+        )
+
+        engine = VigilMLEngine()
+        try:
+            training_result = engine.train_model(model_version, list(samples.select_related("block", "scan_session", "block__vineyard")))
+            if model_version.is_active:
+                VigilMLModelVersion.objects.filter(producer=producer).exclude(pk=model_version.pk).update(is_active=False)
+            model_version.status = "ready"
+            model_version.artifact_path = training_result["artifact_path"]
+            model_version.feature_schema = training_result["feature_schema"]
+            model_version.metrics = training_result["metrics"]
+            model_version.training_sample_count = training_result["training_sample_count"]
+            model_version.validation_sample_count = training_result["validation_sample_count"]
+            model_version.trained_at = timezone.now()
+            model_version.save()
+        except Exception as exc:
+            model_version.status = "failed"
+            model_version.notes = (model_version.notes + "\n" if model_version.notes else "") + str(exc)
+            model_version.save()
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = VigilMLModelVersionSerializer(model_version)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class VigilInferenceView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get(self, request):
+        producer = _get_producer(request)
+        if not producer:
+            return Response([], status=status.HTTP_200_OK)
+        block_id = request.query_params.get("block_id")
+        scan_session_id = request.query_params.get("scan_session_id")
+        predictions = VigilInferenceResult.objects.filter(producer=producer)
+        if block_id:
+            predictions = predictions.filter(block_id=block_id)
+        if scan_session_id:
+            predictions = predictions.filter(scan_session_id=scan_session_id)
+        serializer = VigilInferenceResultSerializer(predictions[:25], many=True, context={"request": request})
+        return Response(serializer.data)
+
+    def post(self, request):
+        producer = _get_producer(request)
+        if not producer:
+            return Response({"error": "Producer profile required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        model_version_id = request.data.get("model_version")
+        if model_version_id:
+            model_version = VigilMLModelVersion.objects.filter(
+                producer=producer, pk=model_version_id, status="ready"
+            ).first()
+        else:
+            model_version = VigilMLModelVersion.objects.filter(
+                producer=producer, status="ready", is_active=True
+            ).order_by("-created_at").first()
+        if not model_version:
+            return Response({"error": "No ready model found. Train a model first."}, status=status.HTTP_400_BAD_REQUEST)
+
+        block = _get_owned_block(producer, request.data.get("block"))
+        if request.data.get("block") and not block:
+            return Response({"error": "Block not found or does not belong to you"}, status=status.HTTP_400_BAD_REQUEST)
+
+        scan_session = _get_owned_scan(producer, request.data.get("scan_session"))
+        if request.data.get("scan_session") and not scan_session:
+            return Response({"error": "Scan session not found or does not belong to you"}, status=status.HTTP_400_BAD_REQUEST)
+
+        image = request.FILES.get("image")
+        if not image:
+            return Response({"error": "An image file is required for prediction."}, status=status.HTTP_400_BAD_REQUEST)
+
+        metadata = _parse_json_field(request.data, "metadata", {})
+        payload = {
+            "grape_species": request.data.get("grape_species") or (block.grape_species if block else ""),
+            "occlusion_percentage": request.data.get("occlusion_percentage"),
+            "hanging_height_cm": request.data.get("hanging_height_cm"),
+            "bbox_width_px": request.data.get("bbox_width_px"),
+            "bbox_height_px": request.data.get("bbox_height_px"),
+            "berry_count": request.data.get("berry_count"),
+            "row_number": request.data.get("row_number"),
+            "vine_number": request.data.get("vine_number"),
+            "weather_temp_f": request.data.get("weather_temp_f"),
+            "recent_rain_in": request.data.get("recent_rain_in"),
+            "soil_moisture_pct": request.data.get("soil_moisture_pct"),
+            "metadata": metadata,
+        }
+
+        inference = VigilInferenceResult.objects.create(
+            producer=producer,
+            model_version=model_version,
+            block=block,
+            scan_session=scan_session,
+            sample_name=request.data.get("sample_name", ""),
+            image=image,
+            grape_species=payload["grape_species"] or "",
+            predicted_volume_cm3=0,
+            predicted_weight_g=0,
+            confidence_score=0,
+            input_payload=payload,
+        )
+
+        engine = VigilMLEngine()
+        try:
+            prediction = engine.predict(
+                model_version,
+                image_path=inference.image.path,
+                block=block,
+                scan_session=scan_session,
+                payload=payload,
+            )
+        except Exception as exc:
+            inference.delete()
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        inference.predicted_volume_cm3 = prediction["predicted_volume_cm3"]
+        inference.predicted_weight_g = prediction["predicted_weight_g"]
+        inference.confidence_score = prediction["confidence_score"]
+        inference.features = prediction["features"]
+        inference.save()
+
+        serializer = VigilInferenceResultSerializer(inference, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

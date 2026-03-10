@@ -39,6 +39,11 @@ from .views_vigil import (
     YieldEstimateView,
     YieldEstimateDetailView,
     VigilDashboardSummaryView,
+    VigilTrainingSampleView,
+    VigilTrainingSampleDetailView,
+    VigilMLModelVersionView,
+    VigilModelTrainView,
+    VigilInferenceView,
 )
 
 urlpatterns = [
@@ -83,4 +88,9 @@ urlpatterns = [
     path("vigil/species-profiles/", GrapeSpeciesProfileView.as_view(), name="vigil-species-profiles"),
     path("vigil/yield-estimates/", YieldEstimateView.as_view(), name="vigil-yield-estimates"),
     path("vigil/yield-estimates/<int:pk>/", YieldEstimateDetailView.as_view(), name="vigil-yield-estimates-detail"),
+    path("vigil/ml/training-samples/", VigilTrainingSampleView.as_view(), name="vigil-ml-training-samples"),
+    path("vigil/ml/training-samples/<int:pk>/", VigilTrainingSampleDetailView.as_view(), name="vigil-ml-training-samples-detail"),
+    path("vigil/ml/models/", VigilMLModelVersionView.as_view(), name="vigil-ml-models"),
+    path("vigil/ml/train/", VigilModelTrainView.as_view(), name="vigil-ml-train"),
+    path("vigil/ml/predictions/", VigilInferenceView.as_view(), name="vigil-ml-predictions"),
 ]

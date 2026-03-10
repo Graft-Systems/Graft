@@ -2,7 +2,11 @@ from django.contrib import admin
 from .models import (
     UserProfile, Producer, Wine, StoreChain, Store,
     Delivery, RetailSale, StorePlacementStatus, InventorySnapshot,
-    WholesalePrice, RetailContact, LocationRequest, MarketingMaterial
+    WholesalePrice, RetailContact, LocationRequest, MarketingMaterial,
+    Vineyard, VineyardBlock, ScanSession, GrapeCluster,
+    PestDiseaseDetection, WeatherData, IrrigationLog,
+    GrapeSpeciesProfile, YieldEstimate, VigilMLModelVersion,
+    VigilTrainingSample, VigilInferenceResult,
 )
 
 # --- USER PROFILES ---
@@ -106,3 +110,111 @@ class MarketingMaterialAdmin(admin.ModelAdmin):
     list_display = ("producer", "category", "created_at")
     list_filter = ("category", "producer")
     search_fields = ("prompt_used",)
+
+
+# --- VIGIL ---
+
+@admin.register(Vineyard)
+class VineyardAdmin(admin.ModelAdmin):
+    list_display = ("name", "producer", "location", "total_acres", "created_at")
+    list_filter = ("producer", "climate_zone")
+    search_fields = ("name", "location", "producer__name")
+
+
+@admin.register(VineyardBlock)
+class VineyardBlockAdmin(admin.ModelAdmin):
+    list_display = ("name", "vineyard", "grape_species", "acres", "created_at")
+    list_filter = ("grape_species", "vineyard__producer")
+    search_fields = ("name", "vineyard__name", "grape_species")
+
+
+@admin.register(ScanSession)
+class ScanSessionAdmin(admin.ModelAdmin):
+    list_display = ("id", "block", "scan_date", "status", "platform", "total_images")
+    list_filter = ("status", "platform")
+    search_fields = ("block__name", "block__vineyard__name")
+
+
+@admin.register(GrapeCluster)
+class GrapeClusterAdmin(admin.ModelAdmin):
+    list_display = ("scan_session", "cluster_index", "visibility", "estimated_volume_cm3", "estimated_weight_g")
+    list_filter = ("visibility",)
+    search_fields = ("scan_session__block__name",)
+
+
+@admin.register(PestDiseaseDetection)
+class PestDiseaseDetectionAdmin(admin.ModelAdmin):
+    list_display = ("display_name", "scan_session", "severity", "confidence_score", "detected_at")
+    list_filter = ("severity",)
+    search_fields = ("display_name", "detection_type", "scan_session__block__name")
+
+
+@admin.register(WeatherData)
+class WeatherDataAdmin(admin.ModelAdmin):
+    list_display = ("vineyard", "date", "source", "temp_high_f", "precipitation_in")
+    list_filter = ("source",)
+    date_hierarchy = "date"
+
+
+@admin.register(IrrigationLog)
+class IrrigationLogAdmin(admin.ModelAdmin):
+    list_display = ("block", "date", "method", "gallons_applied")
+    list_filter = ("method",)
+    date_hierarchy = "date"
+
+
+@admin.register(GrapeSpeciesProfile)
+class GrapeSpeciesProfileAdmin(admin.ModelAdmin):
+    list_display = ("species_name", "avg_cluster_weight_g", "typical_yield_tons_per_acre")
+    search_fields = ("species_name",)
+
+
+@admin.register(YieldEstimate)
+class YieldEstimateAdmin(admin.ModelAdmin):
+    list_display = ("block", "estimate_date", "scenario", "estimated_tons_per_acre", "confidence_score")
+    list_filter = ("scenario",)
+    date_hierarchy = "estimate_date"
+
+
+@admin.register(VigilTrainingSample)
+class VigilTrainingSampleAdmin(admin.ModelAdmin):
+    list_display = (
+        "sample_name",
+        "producer",
+        "block",
+        "grape_species",
+        "target_volume_cm3",
+        "target_weight_g",
+        "created_at",
+    )
+    list_filter = ("producer", "grape_species")
+    search_fields = ("sample_name", "producer__name", "block__name", "grape_species")
+
+
+@admin.register(VigilMLModelVersion)
+class VigilMLModelVersionAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "producer",
+        "version",
+        "status",
+        "training_sample_count",
+        "is_active",
+        "trained_at",
+    )
+    list_filter = ("status", "is_active")
+    search_fields = ("name", "producer__name")
+
+
+@admin.register(VigilInferenceResult)
+class VigilInferenceResultAdmin(admin.ModelAdmin):
+    list_display = (
+        "sample_name",
+        "producer",
+        "model_version",
+        "predicted_volume_cm3",
+        "confidence_score",
+        "created_at",
+    )
+    list_filter = ("producer",)
+    search_fields = ("sample_name", "producer__name", "grape_species")

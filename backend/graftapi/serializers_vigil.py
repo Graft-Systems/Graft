@@ -9,6 +9,9 @@ from .models.vigil import (
     IrrigationLog,
     GrapeSpeciesProfile,
     YieldEstimate,
+    VigilMLModelVersion,
+    VigilTrainingSample,
+    VigilInferenceResult,
 )
 
 
@@ -252,3 +255,153 @@ class YieldEstimateSerializer(serializers.ModelSerializer):
             'grape_species',
             'vineyard_name',
         ]
+
+
+class VigilTrainingSampleSerializer(serializers.ModelSerializer):
+    block_name = serializers.ReadOnlyField(source='block.name')
+    scan_label = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = VigilTrainingSample
+        fields = [
+            'id',
+            'producer',
+            'block',
+            'block_name',
+            'scan_session',
+            'scan_label',
+            'sample_name',
+            'image',
+            'image_url',
+            'grape_species',
+            'captured_at',
+            'target_volume_cm3',
+            'target_weight_g',
+            'occlusion_percentage',
+            'hanging_height_cm',
+            'bbox_width_px',
+            'bbox_height_px',
+            'berry_count',
+            'row_number',
+            'vine_number',
+            'weather_temp_f',
+            'recent_rain_in',
+            'soil_moisture_pct',
+            'metadata',
+            'notes',
+            'created_at',
+        ]
+        read_only_fields = [
+            'id',
+            'producer',
+            'block_name',
+            'scan_label',
+            'image_url',
+            'created_at',
+        ]
+
+    def get_scan_label(self, obj):
+        if not obj.scan_session:
+            return None
+        return f"Scan {obj.scan_session.id} - {obj.scan_session.scan_date:%Y-%m-%d %H:%M}"
+
+    def get_image_url(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get('request')
+        url = obj.image.url
+        return request.build_absolute_uri(url) if request else url
+
+
+class VigilMLModelVersionSerializer(serializers.ModelSerializer):
+    producer_name = serializers.ReadOnlyField(source='producer.name')
+
+    class Meta:
+        model = VigilMLModelVersion
+        fields = [
+            'id',
+            'producer',
+            'producer_name',
+            'name',
+            'version',
+            'status',
+            'algorithm',
+            'target',
+            'feature_schema',
+            'metrics',
+            'training_sample_count',
+            'validation_sample_count',
+            'is_active',
+            'notes',
+            'created_at',
+            'trained_at',
+        ]
+        read_only_fields = [
+            'id',
+            'producer',
+            'producer_name',
+            'version',
+            'status',
+            'algorithm',
+            'target',
+            'feature_schema',
+            'metrics',
+            'training_sample_count',
+            'validation_sample_count',
+            'created_at',
+            'trained_at',
+        ]
+
+
+class VigilInferenceResultSerializer(serializers.ModelSerializer):
+    block_name = serializers.ReadOnlyField(source='block.name')
+    model_name = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = VigilInferenceResult
+        fields = [
+            'id',
+            'producer',
+            'model_version',
+            'model_name',
+            'block',
+            'block_name',
+            'scan_session',
+            'sample_name',
+            'image',
+            'image_url',
+            'grape_species',
+            'predicted_volume_cm3',
+            'predicted_weight_g',
+            'confidence_score',
+            'features',
+            'input_payload',
+            'created_at',
+        ]
+        read_only_fields = [
+            'id',
+            'producer',
+            'model_name',
+            'block_name',
+            'image_url',
+            'predicted_volume_cm3',
+            'predicted_weight_g',
+            'confidence_score',
+            'features',
+            'input_payload',
+            'created_at',
+        ]
+
+    def get_model_name(self, obj):
+        if not obj.model_version:
+            return None
+        return f"{obj.model_version.name} v{obj.model_version.version}"
+
+    def get_image_url(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get('request')
+        url = obj.image.url
+        return request.build_absolute_uri(url) if request else url

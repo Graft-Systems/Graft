@@ -313,3 +313,132 @@ class YieldEstimate(models.Model):
 
     def __str__(self):
         return f"{self.block.name} - {self.scenario} ({self.estimate_date}): {self.estimated_tons_per_acre} t/ac"
+
+
+class VigilMLModelVersion(models.Model):
+    """A producer-scoped trained model artifact for cluster volume prediction."""
+
+    STATUS_CHOICES = [
+        ("training", "Training"),
+        ("ready", "Ready"),
+        ("failed", "Failed"),
+        ("archived", "Archived"),
+    ]
+
+    producer = models.ForeignKey(
+        "graftapi.Producer", on_delete=models.CASCADE, related_name="vigil_ml_models"
+    )
+    name = models.CharField(max_length=255, default="Cluster Volume Model")
+    version = models.PositiveIntegerField(default=1)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="training")
+    algorithm = models.CharField(max_length=100, default="ridge-regression-v1")
+    target = models.CharField(max_length=100, default="cluster_volume_cm3")
+    artifact_path = models.CharField(max_length=500, blank=True)
+    feature_schema = models.JSONField(default=dict, blank=True)
+    metrics = models.JSONField(default=dict, blank=True)
+    training_sample_count = models.PositiveIntegerField(default=0)
+    validation_sample_count = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    trained_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        unique_together = ["producer", "name", "version"]
+
+    def __str__(self):
+        return f"{self.producer.name} - {self.name} v{self.version}"
+
+
+class VigilTrainingSample(models.Model):
+    """Labeled cluster images and metadata used to train the VIGIL model."""
+
+    producer = models.ForeignKey(
+        "graftapi.Producer", on_delete=models.CASCADE, related_name="vigil_training_samples"
+    )
+    block = models.ForeignKey(
+        VineyardBlock,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="training_samples",
+    )
+    scan_session = models.ForeignKey(
+        ScanSession,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="training_samples",
+    )
+    sample_name = models.CharField(max_length=255, blank=True)
+    image = models.FileField(upload_to="vigil/training/%Y/%m/%d/")
+    grape_species = models.CharField(max_length=255, blank=True)
+    captured_at = models.DateTimeField(null=True, blank=True)
+    target_volume_cm3 = models.DecimalField(max_digits=10, decimal_places=2)
+    target_weight_g = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    occlusion_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    hanging_height_cm = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    bbox_width_px = models.IntegerField(null=True, blank=True)
+    bbox_height_px = models.IntegerField(null=True, blank=True)
+    berry_count = models.IntegerField(null=True, blank=True)
+    row_number = models.IntegerField(null=True, blank=True)
+    vine_number = models.IntegerField(null=True, blank=True)
+    weather_temp_f = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    recent_rain_in = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    soil_moisture_pct = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        label = self.sample_name or f"Training Sample {self.pk}"
+        return f"{label} - {self.producer.name}"
+
+
+class VigilInferenceResult(models.Model):
+    """Saved prediction runs for real-world cluster images."""
+
+    producer = models.ForeignKey(
+        "graftapi.Producer", on_delete=models.CASCADE, related_name="vigil_inference_results"
+    )
+    model_version = models.ForeignKey(
+        VigilMLModelVersion,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="predictions",
+    )
+    block = models.ForeignKey(
+        VineyardBlock,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="inference_results",
+    )
+    scan_session = models.ForeignKey(
+        ScanSession,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="inference_results",
+    )
+    sample_name = models.CharField(max_length=255, blank=True)
+    image = models.FileField(upload_to="vigil/inference/%Y/%m/%d/")
+    grape_species = models.CharField(max_length=255, blank=True)
+    predicted_volume_cm3 = models.DecimalField(max_digits=10, decimal_places=2)
+    predicted_weight_g = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    confidence_score = models.DecimalField(max_digits=4, decimal_places=2, default=0)
+    features = models.JSONField(default=dict, blank=True)
+    input_payload = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        label = self.sample_name or f"Prediction {self.pk}"
+        return f"{label} - {self.producer.name}"

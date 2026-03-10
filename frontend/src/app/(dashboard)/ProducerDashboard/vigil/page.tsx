@@ -14,6 +14,7 @@ import WeatherPanel from "@/components/vigil/WeatherPanel";
 import IrrigationPanel from "@/components/vigil/IrrigationPanel";
 import PestDiseasePanel from "@/components/vigil/PestDiseasePanel";
 import SpeciesProfilePanel from "@/components/vigil/SpeciesProfilePanel";
+import VigilMLWorkbenchPanel from "@/components/vigil/VigilMLWorkbenchPanel";
 
 export default function VigilDashboard() {
     const [selectedVineyardId, setSelectedVineyardId] = useState<number | null>(null);
@@ -147,6 +148,10 @@ export default function VigilDashboard() {
 
                     {/* Right Column */}
                     <div className="space-y-8">
+                        <PanelContainer title="VIGIL ML Workbench" titleColor="#9f1239">
+                            <VigilMLWorkbenchPanel blockId={selectedBlockId} scanSessionId={selectedScanId} />
+                        </PanelContainer>
+
                         <PanelContainer title="Yield Estimation (Bear / Base / Bull)" titleColor="#9f1239">
                             <YieldEstimationPanel blockId={selectedBlockId} />
                         </PanelContainer>
