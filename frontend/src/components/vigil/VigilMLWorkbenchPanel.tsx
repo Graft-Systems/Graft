@@ -11,6 +11,7 @@ import {
     Image as ImageIcon,
     CheckCircle2,
     Sparkles,
+    X,
 } from "lucide-react";
 import api from "@/app/lib/api";
 
@@ -59,6 +60,7 @@ interface PredictionResult {
 interface Props {
     blockId: number | null;
     scanSessionId: number | null;
+    refreshToken?: number;
 }
 
 const emptyTrainingForm = {
@@ -87,7 +89,7 @@ const emptyPredictionForm = {
     metadata: "",
 };
 
-export default function VigilMLWorkbenchPanel({ blockId, scanSessionId }: Props) {
+export default function VigilMLWorkbenchPanel({ blockId, scanSessionId, refreshToken = 0 }: Props) {
     const [samples, setSamples] = useState<TrainingSample[]>([]);
     const [models, setModels] = useState<ModelVersion[]>([]);
     const [predictions, setPredictions] = useState<PredictionResult[]>([]);
@@ -103,10 +105,12 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId }: Props)
     const [modelNotes, setModelNotes] = useState("");
     const [selectedModelId, setSelectedModelId] = useState<number | "">("");
     const [latestPrediction, setLatestPrediction] = useState<PredictionResult | null>(null);
+    const [expandedPredictionImageUrl, setExpandedPredictionImageUrl] = useState<string | null>(null);
+    const [expandedPredictionLabel, setExpandedPredictionLabel] = useState<string>("Prediction image");
 
     useEffect(() => {
         fetchWorkbenchData();
-    }, [blockId, scanSessionId]);
+    }, [blockId, scanSessionId, refreshToken]);
 
     const fetchWorkbenchData = async () => {
         setLoading(true);
@@ -264,7 +268,7 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId }: Props)
 
     return (
         <div className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 <div className="rounded-xl p-4" style={{ backgroundColor: "#fafafa", border: "1px solid #e5e5e5" }}>
                     <p className="text-xs uppercase tracking-[0.18em] mb-2" style={{ color: "#6b7280" }}>Training Samples</p>
                     <p className="text-3xl font-bold" style={{ color: "#9f1239" }}>{samples.length}</p>
@@ -279,8 +283,8 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId }: Props)
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                <form onSubmit={handleUploadTrainingSample} className="rounded-2xl p-5 space-y-4" style={{ backgroundColor: "#fffaf5", border: "1px solid #fed7aa" }}>
+            <div className="grid grid-cols-1 2xl:grid-cols-2 gap-6">
+                <form onSubmit={handleUploadTrainingSample} className="rounded-2xl p-4 xl:p-5 space-y-4" style={{ backgroundColor: "#fffaf5", border: "1px solid #fed7aa" }}>
                     <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg" style={{ backgroundColor: "#ffedd5", color: "#9a3412" }}>
                             <Upload size={18} />
@@ -291,7 +295,7 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId }: Props)
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                         <input
                             className="p-2 border rounded-md text-gray-900 placeholder:text-gray-500"
                             placeholder="Sample Name"
@@ -400,7 +404,7 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId }: Props)
                     </button>
                 </form>
 
-                <div className="rounded-2xl p-5 space-y-4" style={{ backgroundColor: "#f7fee7", border: "1px solid #bef264" }}>
+                <div className="rounded-2xl p-4 xl:p-5 space-y-4" style={{ backgroundColor: "#f7fee7", border: "1px solid #bef264" }}>
                     <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg" style={{ backgroundColor: "#ecfccb", color: "#3f6212" }}>
                             <BrainCircuit size={18} />
@@ -484,8 +488,8 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId }: Props)
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-6">
-                <form onSubmit={handlePredict} className="rounded-2xl p-5 space-y-4" style={{ backgroundColor: "#eff6ff", border: "1px solid #bfdbfe" }}>
+            <div className="grid grid-cols-1 2xl:grid-cols-[1.2fr_0.8fr] gap-6">
+                <form onSubmit={handlePredict} className="rounded-2xl p-4 xl:p-5 space-y-4" style={{ backgroundColor: "#eff6ff", border: "1px solid #bfdbfe" }}>
                     <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg" style={{ backgroundColor: "#dbeafe", color: "#1d4ed8" }}>
                             <Play size={18} />
@@ -496,7 +500,7 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId }: Props)
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                         <select
                             className="p-2 border rounded-md text-gray-900"
                             value={selectedModelId}
@@ -599,7 +603,7 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId }: Props)
                 </form>
 
                 <div className="space-y-4">
-                    <div className="rounded-2xl p-5" style={{ backgroundColor: "#f8fafc", border: "1px solid #e2e8f0" }}>
+                    <div className="rounded-2xl p-4 xl:p-5" style={{ backgroundColor: "#f8fafc", border: "1px solid #e2e8f0" }}>
                         <div className="flex items-center gap-3 mb-4">
                             <div className="p-2 rounded-lg" style={{ backgroundColor: "#e0e7ff", color: "#4338ca" }}>
                                 <Sparkles size={18} />
@@ -613,7 +617,17 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId }: Props)
                         {latestPrediction ? (
                             <div className="space-y-3">
                                 {latestPrediction.image_url ? (
-                                    <img src={latestPrediction.image_url} alt={latestPrediction.sample_name || "Prediction"} className="w-full h-44 object-cover rounded-xl border" />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setExpandedPredictionImageUrl(latestPrediction.image_url);
+                                            setExpandedPredictionLabel(latestPrediction.sample_name || "Prediction");
+                                        }}
+                                        className="block w-full text-left"
+                                    >
+                                        <img src={latestPrediction.image_url} alt={latestPrediction.sample_name || "Prediction"} className="w-full h-28 object-cover rounded-xl border" />
+                                        <p className="text-xs mt-2" style={{ color: "#6b7280" }}>Click the image to expand it.</p>
+                                    </button>
                                 ) : null}
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="rounded-xl p-3" style={{ backgroundColor: "#ffffff", border: "1px solid #e5e7eb" }}>
@@ -636,7 +650,7 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId }: Props)
                         )}
                     </div>
 
-                    <div className="rounded-2xl p-5" style={{ backgroundColor: "#ffffff", border: "1px solid #e5e7eb" }}>
+                    <div className="rounded-2xl p-4 xl:p-5" style={{ backgroundColor: "#ffffff", border: "1px solid #e5e7eb" }}>
                         <h3 className="text-base font-bold mb-4" style={{ color: "#262626" }}>Recent Samples</h3>
                         <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
                             {samples.length === 0 ? (
@@ -669,6 +683,33 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId }: Props)
                     </div>
                 </div>
             </div>
+
+            {expandedPredictionImageUrl ? (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6"
+                    onClick={() => setExpandedPredictionImageUrl(null)}
+                >
+                    <div
+                        className="relative w-full max-w-5xl rounded-2xl bg-white p-3 shadow-2xl"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => setExpandedPredictionImageUrl(null)}
+                            className="absolute right-3 top-3 rounded-full p-2"
+                            style={{ backgroundColor: "rgba(255,255,255,0.9)", color: "#111827" }}
+                            aria-label="Close expanded prediction image"
+                        >
+                            <X size={18} />
+                        </button>
+                        <img
+                            src={expandedPredictionImageUrl}
+                            alt={expandedPredictionLabel}
+                            className="max-h-[80vh] w-full rounded-xl object-contain"
+                        />
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 }

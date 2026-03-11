@@ -131,11 +131,11 @@ export default function VigilSummaryCards() {
     ];
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4 xl:gap-5">
             {cards.map((card, i) => (
                 <div
                     key={i}
-                    className="p-5 rounded-xl shadow-sm"
+                    className="p-4 xl:p-5 rounded-xl shadow-sm"
                     style={{
                         backgroundColor: "#ffffff",
                         border: "1px solid #f5f5f5",
@@ -147,16 +147,16 @@ export default function VigilSummaryCards() {
                 >
                     <div className="flex items-center gap-2 mb-3">
                         <div
-                            className="p-2 rounded-full"
+                            className="p-2 rounded-full shrink-0"
                             style={{ backgroundColor: "#fff1f2", color: card.accent }}
                         >
                             {card.icon}
                         </div>
-                        <p className="text-sm font-medium uppercase tracking-wider" style={{ color: "#374151" }}>
+                        <p className="text-xs xl:text-sm font-medium uppercase tracking-wider leading-snug" style={{ color: "#374151" }}>
                             {card.label}
                         </p>
                     </div>
-                    <h3 className="text-3xl font-bold" style={{ color: card.accent }}>
+                    <h3 className="text-2xl xl:text-3xl font-bold" style={{ color: card.accent }}>
                         {card.value}
                     </h3>
                 </div>

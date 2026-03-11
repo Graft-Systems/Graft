@@ -38,6 +38,7 @@ from .models.vigil import (
     VigilInferenceResult,
 )
 from .models.wine import Producer
+from .dataset_importers import MAX_DATASET_FILES, DATASET_IMPORTERS, get_dataset_importer
 from .vigil_engine import VigilMLEngine
 
 
@@ -788,7 +789,7 @@ class VigilMLModelVersionView(APIView):
         if not producer:
             return Response([], status=status.HTTP_200_OK)
         active_only = request.query_params.get("active_only") == "true"
-        models = VigilMLModelVersion.objects.filter(producer=producer)
+        models = VigilMLModelVersion.objects.filter(producer=producer).order_by("-created_at", "-id")
         if active_only:
             models = models.filter(is_active=True)
         serializer = VigilMLModelVersionSerializer(models, many=True)
@@ -803,7 +804,7 @@ class VigilModelTrainView(APIView):
         if not producer:
             return Response({"error": "Producer profile required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        model_name = request.data.get("name") or "Cluster Volume Model"
+        model_name = (request.data.get("name") or "Cluster Volume Model").strip()
         block_id = request.data.get("block_id")
         sample_ids = request.data.get("sample_ids") or []
         if isinstance(sample_ids, str):
@@ -833,7 +834,7 @@ class VigilModelTrainView(APIView):
             name=model_name,
             version=next_version,
             status="training",
-            notes=request.data.get("notes", ""),
+            notes=(request.data.get("notes", "") or "").strip(),
             is_active=bool(request.data.get("is_active", True)),
         )
 
@@ -958,3 +959,81 @@ class VigilInferenceView(APIView):
 
         serializer = VigilInferenceResultSerializer(inference, context={"request": request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class VigilDatasetSourceView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        sources = []
+        for importer in DATASET_IMPORTERS.values():
+            definition = importer.get_definition()
+            definition["bundled_root_available"] = importer.bundled_root_exists() if hasattr(importer, "bundled_root_exists") else False
+            sources.append(definition)
+        return Response(sources)
+
+
+class VigilDatasetImportView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def post(self, request, dataset_key):
+        producer = _get_producer(request)
+        if not producer:
+            return Response({"error": "Producer profile required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        importer = get_dataset_importer(dataset_key)
+        if not importer:
+            return Response({"error": "Unsupported dataset source."}, status=status.HTTP_404_NOT_FOUND)
+
+        train_after_import = str(request.data.get("train_after_import", "false")).lower() == "true"
+        model_name = (request.data.get("model_name") or f"{importer.dataset_name} Model").strip()
+        notes = (request.data.get("notes", "") or "").strip()
+        source_mode = request.data.get("source_mode", "upload")
+        max_files = min(int(request.data.get("max_files") or MAX_DATASET_FILES), MAX_DATASET_FILES)
+
+        try:
+            if source_mode == "bundled":
+                summary = importer.import_from_bundled_root(
+                    producer,
+                    max_files=max_files,
+                    train_after_import=train_after_import,
+                    model_name=model_name,
+                    notes=notes,
+                )
+            else:
+                uploaded_files = request.FILES.getlist("files")
+                if not uploaded_files:
+                    return Response({"error": "Upload at least one dataset file."}, status=status.HTTP_400_BAD_REQUEST)
+                raw_relative_paths = request.data.get("relative_paths") or "[]"
+                try:
+                    relative_paths = json.loads(raw_relative_paths)
+                except json.JSONDecodeError:
+                    relative_paths = []
+                if len(relative_paths) != len(uploaded_files):
+                    relative_paths = [getattr(file, "name", f"file_{index}") for index, file in enumerate(uploaded_files)]
+                summary = importer.import_from_uploaded_files(
+                    producer,
+                    uploaded_files=uploaded_files,
+                    relative_paths=relative_paths,
+                    max_files=max_files,
+                    train_after_import=train_after_import,
+                    model_name=model_name,
+                    notes=notes,
+                )
+        except Exception as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        payload = {
+            "dataset_key": dataset_key,
+            "dataset_name": importer.dataset_name,
+            "source_label": summary.source_label,
+            "imported_samples": summary.imported_samples,
+            "skipped_samples": summary.skipped_samples,
+            "total_candidate_rows": summary.total_candidate_rows,
+            "capped_files": summary.capped_files,
+            "available_training_samples": VigilTrainingSample.objects.filter(producer=producer).count(),
+        }
+        if summary.trained_model:
+            payload["trained_model"] = VigilMLModelVersionSerializer(summary.trained_model).data
+        return Response(payload, status=status.HTTP_201_CREATED)

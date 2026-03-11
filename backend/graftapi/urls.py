@@ -44,6 +44,8 @@ from .views_vigil import (
     VigilMLModelVersionView,
     VigilModelTrainView,
     VigilInferenceView,
+    VigilDatasetSourceView,
+    VigilDatasetImportView,
 )
 
 urlpatterns = [
@@ -93,4 +95,6 @@ urlpatterns = [
     path("vigil/ml/models/", VigilMLModelVersionView.as_view(), name="vigil-ml-models"),
     path("vigil/ml/train/", VigilModelTrainView.as_view(), name="vigil-ml-train"),
     path("vigil/ml/predictions/", VigilInferenceView.as_view(), name="vigil-ml-predictions"),
+    path("vigil/ml/datasets/", VigilDatasetSourceView.as_view(), name="vigil-ml-datasets"),
+    path("vigil/ml/datasets/<str:dataset_key>/import/", VigilDatasetImportView.as_view(), name="vigil-ml-dataset-import"),
 ]

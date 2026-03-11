@@ -294,8 +294,8 @@ export default function YieldEstimationPanel({ blockId }: YieldEstimationPanelPr
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex justify-between items-center">
-                <h3 className="text-xl font-bold" style={{ color: "#262626" }}>Yield Estimation</h3>
+            <div className="flex flex-col gap-3 xl:flex-row xl:justify-between xl:items-center">
+                <h3 className="text-lg xl:text-xl font-bold" style={{ color: "#262626" }}>Yield Estimation</h3>
                 <button
                     onClick={() => setShowAddForm(!showAddForm)}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg transition shadow-sm"
@@ -309,7 +309,7 @@ export default function YieldEstimationPanel({ blockId }: YieldEstimationPanelPr
 
             {/* Add Estimate Form */}
             {showAddForm && (
-                <form onSubmit={handleAddEstimate} className="p-4 rounded-xl grid grid-cols-2 gap-4" style={{ backgroundColor: "#fafafa", border: "1px solid #ffe4e6" }}>
+                <form onSubmit={handleAddEstimate} className="p-4 rounded-xl grid grid-cols-1 xl:grid-cols-2 gap-4" style={{ backgroundColor: "#fafafa", border: "1px solid #ffe4e6" }}>
                     <div className="col-span-2">
                         <p className="text-sm font-semibold mb-1" style={{ color: "#374151" }}>New Yield Estimate</p>
                     </div>
@@ -476,7 +476,7 @@ export default function YieldEstimationPanel({ blockId }: YieldEstimationPanelPr
                     <p className="text-sm font-semibold mb-3" style={{ color: "#6b7280" }}>
                         Latest Estimate &mdash; {latestDate}
                     </p>
-                    <div className="flex gap-4">
+                    <div className="grid grid-cols-1 2xl:grid-cols-3 gap-4">
                         {renderSpotlightCard(getScenarioEstimate(latestEstimates, "bear"), "bear")}
                         {renderSpotlightCard(getScenarioEstimate(latestEstimates, "base"), "base")}
                         {renderSpotlightCard(getScenarioEstimate(latestEstimates, "bull"), "bull")}
@@ -500,7 +500,7 @@ export default function YieldEstimationPanel({ blockId }: YieldEstimationPanelPr
                     </button>
 
                     {showHistorical && (
-                        <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #f5f5f5" }}>
+                        <div className="rounded-xl overflow-x-auto" style={{ border: "1px solid #f5f5f5" }}>
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr style={{ backgroundColor: "#fafafa" }}>
