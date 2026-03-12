@@ -14,6 +14,6 @@ requests
 langchain==0.2.11
 langchain-openai==0.1.15
 langchain-anthropic==0.1.15
-langchain-google-genai==1.0.5
+langchain-google-genai
 numpy
 Pillow

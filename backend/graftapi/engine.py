@@ -7,8 +7,8 @@ import os
 from typing import Optional
 
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
+#from langchain_openai import ChatOpenAI
+#from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 
@@ -20,7 +20,7 @@ class AIEngine:
 
     def __init__(self):
         # Get the AI provider and API key from environment variables
-        self.provider = os.getenv("AI_PROVIDER", "openai").lower()
+        self.provider = os.getenv("AI_PROVIDER", "openai").lower() #TODO: fix these default values
         self.api_key = os.getenv("AI_API_KEY", None)
         self.model = os.getenv("AI_MODEL", "gpt-3.5-turbo")
         self.temperature = float(os.getenv("AI_TEMPERATURE", "0.7"))
@@ -37,19 +37,21 @@ class AIEngine:
         Initialize the appropriate LangChain ChatModel based on provider
         """
         if self.provider == "openai":
-            return ChatOpenAI(
-                api_key=self.api_key,
-                model=self.model,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
-            )
+            return
+            # return ChatOpenAI(
+            #     api_key=self.api_key,
+            #     model=self.model,
+            #     temperature=self.temperature,
+            #     max_tokens=self.max_tokens,
+            # )
         elif self.provider == "anthropic":
-            return ChatAnthropic(
-                api_key=self.api_key,
-                model=self.model,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
-            )
+            return
+            # return ChatAnthropic(
+            #     api_key=self.api_key,
+            #     model=self.model,
+            #     temperature=self.temperature,
+            #     max_tokens=self.max_tokens,
+            # )
         elif self.provider == "google":
             return ChatGoogleGenerativeAI(
                 google_api_key=self.api_key,
