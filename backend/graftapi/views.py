@@ -319,8 +319,29 @@ def ai_chat(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
     except Exception as e:
+        error_text = str(e)
+        lower_error = error_text.lower()
+
+        if any(token in lower_error for token in ["429", "quota", "rate limit", "resource_exhausted", "too many requests"]):
+            return Response(
+                {
+                    "error": "AI provider rate limit or quota reached. Please wait a minute and try again.",
+                    "details": error_text,
+                },
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
+        if any(token in lower_error for token in ["401", "403", "invalid api key", "api key not valid", "permission denied", "unauthorized"]):
+            return Response(
+                {
+                    "error": "AI provider authentication failed. Please verify your AI API key and provider settings.",
+                    "details": error_text,
+                },
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
         return Response(
-            {"error": "Failed to get AI response", "details": str(e)},
+            {"error": "Failed to get AI response", "details": error_text},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 

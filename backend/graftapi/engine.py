@@ -4,6 +4,7 @@ Powered by LangChain - Handles communication with AI API providers
 """
 
 import os
+import re
 from typing import Optional
 
 from langchain_core.prompts import ChatPromptTemplate
@@ -24,7 +25,7 @@ class AIEngine:
         self.api_key = os.getenv("AI_API_KEY", None)
         self.model = os.getenv("AI_MODEL", "gpt-3.5-turbo")
         self.temperature = float(os.getenv("AI_TEMPERATURE", "0.7"))
-        self.max_tokens = int(os.getenv("AI_MAX_TOKENS", "500"))
+        self.max_tokens = int(os.getenv("AI_MAX_TOKENS", "900"))
         
         if not self.api_key:
             raise ValueError("AI_API_KEY environment variable not set. Please configure your AI API key.")
@@ -122,9 +123,92 @@ class AIEngine:
         # Create and invoke the chain
         chain = prompt | self.chat_model
         response = chain.invoke({"input": full_input})
-        
-        # Extract the text content from the response
-        return response.content
+
+        response_text = self._extract_text(response)
+
+        if self._is_likely_truncated(response, response_text):
+            continuation_prompt = ChatPromptTemplate.from_messages([
+                (
+                    "system",
+                    "You are continuing an in-progress answer for Graft Systems. "
+                    "Continue exactly where the previous answer stopped, without repeating prior text. "
+                    "Finish any incomplete sentence and end with complete sentences."
+                ),
+                (
+                    "human",
+                    "Original user request:\n{input}\n\n"
+                    "Current partial answer:\n{partial}\n\n"
+                    "Continue now from the cutoff point only."
+                ),
+            ])
+
+            continuation_chain = continuation_prompt | self.chat_model
+            continuation_response = continuation_chain.invoke(
+                {
+                    "input": full_input,
+                    "partial": response_text,
+                }
+            )
+            continuation_text = self._extract_text(continuation_response)
+            response_text = self._merge_response(response_text, continuation_text)
+
+        return response_text
+
+    def _extract_text(self, response) -> str:
+        content = getattr(response, "content", "")
+        if isinstance(content, str):
+            return content.strip()
+
+        if isinstance(content, list):
+            parts = []
+            for item in content:
+                if isinstance(item, str):
+                    parts.append(item)
+                elif isinstance(item, dict):
+                    text_part = item.get("text")
+                    if isinstance(text_part, str):
+                        parts.append(text_part)
+            return "".join(parts).strip()
+
+        return str(content).strip()
+
+    def _is_likely_truncated(self, response, text: str) -> bool:
+        if not text:
+            return False
+
+        metadata = getattr(response, "response_metadata", {}) or {}
+        finish_reason = metadata.get("finish_reason") or metadata.get("stop_reason")
+        if isinstance(finish_reason, str) and finish_reason.lower() in {"length", "max_tokens"}:
+            return True
+
+        trimmed = text.rstrip()
+        if not trimmed:
+            return False
+
+        if trimmed[-1] not in {".", "!", "?", '"', "'", "”", "’", ")"}:
+            last_word_match = re.search(r"([A-Za-z]+)$", trimmed)
+            if last_word_match:
+                last_word = last_word_match.group(1).lower()
+                if last_word in {
+                    "and", "or", "but", "because", "if", "when", "with", "for", "to", "could", "should", "would", "which", "that"
+                }:
+                    return True
+            if len(trimmed) > 80:
+                return True
+
+        return False
+
+    def _merge_response(self, first: str, continuation: str) -> str:
+        first_text = (first or "").rstrip()
+        continuation_text = (continuation or "").lstrip()
+
+        if not continuation_text:
+            return first_text
+
+        if continuation_text.startswith(first_text[-30:]) and len(first_text) >= 30:
+            return continuation_text
+
+        return f"{first_text} {continuation_text}".strip()
 
 
 # Initialize engine instance (will be called by views)

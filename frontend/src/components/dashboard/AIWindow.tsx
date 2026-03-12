@@ -62,7 +62,8 @@ export default function AIWindow() {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Failed to get AI response");
+        const detailSuffix = error.details ? ` (${error.details})` : "";
+        throw new Error((error.error || "Failed to get AI response") + detailSuffix);
       }
 
       const data = await response.json();
@@ -74,12 +75,18 @@ export default function AIWindow() {
       };
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error) {
+      const fallbackMessage =
+        error instanceof Error ? error.message : "Failed to get AI response";
+      const includeApiKeyHint =
+        typeof fallbackMessage === "string" &&
+        /api key|authentication failed|not set|invalid api key/i.test(fallbackMessage);
+
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "ai",
-        content: `Error: ${
-          error instanceof Error ? error.message : "Failed to get AI response"
-        }. Please ensure your AI API key is configured.`,
+        content: includeApiKeyHint
+          ? `Error: ${fallbackMessage}. Please ensure your AI API key is configured.`
+          : `Error: ${fallbackMessage}.`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
