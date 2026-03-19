@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Menu, LayoutDashboard, Eye } from "lucide-react";
+import { Menu, LayoutDashboard, Eye, Scale } from "lucide-react";
 
 const NAV_ITEMS = [
     {
@@ -15,6 +16,12 @@ const NAV_ITEMS = [
         subtitle: "Vine Intelligence for Grape Identification & Load-estimation",
         icon: Eye,
         href: "/ProducerDashboard/vigil",
+    },
+    {
+        label: "Legal Insight Provider",
+        subtitle: "State Profile → Logic Tree",
+        icon: Scale,
+        href: "/ProducerDashboard/legal",
     },
 ];
 
@@ -65,7 +72,7 @@ function SidebarItem({
     active,
     onClick,
 }: {
-    icon: any;
+    icon: ReactNode;
     label: string;
     subtitle?: string;
     open: boolean;

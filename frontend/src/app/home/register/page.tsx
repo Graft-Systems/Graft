@@ -13,6 +13,34 @@ export default function RegisterPage() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
+    const getErrorMessage = (err: unknown) => {
+        const maybe = err as {
+            response?: { data?: unknown };
+            message?: string;
+        };
+
+        const data = maybe.response?.data;
+
+        if (data && typeof data === "object" && "error" in data) {
+            const maybeErr = (data as { error?: unknown }).error;
+            if (typeof maybeErr === "string" && maybeErr.trim()) return maybeErr;
+        }
+
+        if (typeof data === "string" && data.trim()) return data;
+
+        if (data && typeof data === "object") {
+            // Show DRF serializer validation shape (e.g. { field: ["msg"] }).
+            try {
+                const str = JSON.stringify(data);
+                if (str && str !== "{}") return str;
+            } catch {
+                // fallthrough
+            }
+        }
+
+        return maybe.message || "Registration failed. Please try again.";
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
@@ -39,9 +67,8 @@ export default function RegisterPage() {
                     router.push("/home/register/finish-retailer");
                 }
             }, 1000);
-        } catch (err: any) {
-            console.error(err.response?.data || err.message);
-            setError(err.response?.data?.error || "Registration failed. Please try again.");
+        } catch (err: unknown) {
+            setError(getErrorMessage(err));
         } finally {
             setLoading(false);
         }
@@ -66,7 +93,7 @@ export default function RegisterPage() {
                     </h1>
 
                     <p className="text-gray-600 text-lg max-w-sm">
-                        Whether you're a producer or retailer, your personalized dashboard
+                        Whether you&apos;re a producer or retailer, your personalized dashboard
                         gives you complete clarity into distribution insights, inventory,
                         and performance metrics — all powered by modern AI tooling.
                     </p>

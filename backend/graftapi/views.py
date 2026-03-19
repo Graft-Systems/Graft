@@ -43,7 +43,18 @@ def login_user(request):
     user = authenticate(username=username, password=password)
     if user is not None:
         refresh = RefreshToken.for_user(user)
-        role = getattr(user.profile, "role", None)
+        # `user.profile` may not exist for legacy users; avoid crashing the login endpoint.
+        try:
+            role = user.profile.role
+        except Exception:
+            role = None
+
+        if not role:
+            # Provide a useful error for users that exist but have no role/profile set.
+            return Response(
+                {"error": "User profile role is missing. Please complete registration/profile setup."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         return Response(
             {

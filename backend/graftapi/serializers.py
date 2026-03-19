@@ -46,6 +46,7 @@ class RegisterSerializer(serializers.ModelSerializer):
                     user.profile.role = role
                     user.profile.save()
                 else:
+                    # Legacy/partial users may exist without a UserProfile row.
                     UserProfile.objects.create(user=user, role=role)
             else:
                 user = User.objects.create_user(username=username, password=password)

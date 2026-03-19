@@ -10,6 +10,15 @@ export default function LoginPage() {
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
 
+    const getErrorMessage = (err: unknown) => {
+        const maybe = err as {
+            response?: { data?: { error?: string } };
+            message?: string;
+        };
+
+        return maybe.response?.data?.error || maybe.message || "Login failed. Please try again.";
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
@@ -33,9 +42,8 @@ export default function LoginPage() {
             }
 
             router.push(dashboardPath);
-        } catch (err: any) {
-            console.error(err.response?.data || err.message);
-            setError(err.response?.data?.error || "Login failed. Please try again.");
+        } catch (err: unknown) {
+            setError(getErrorMessage(err));
         }
     };
 
