@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.conf import settings
 from .models.vigil import (
     Vineyard,
     VineyardBlock,
@@ -358,6 +359,7 @@ class VigilInferenceResultSerializer(serializers.ModelSerializer):
     block_name = serializers.ReadOnlyField(source='block.name')
     model_name = serializers.SerializerMethodField()
     image_url = serializers.SerializerMethodField()
+    annotated_image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = VigilInferenceResult
@@ -372,6 +374,7 @@ class VigilInferenceResultSerializer(serializers.ModelSerializer):
             'sample_name',
             'image',
             'image_url',
+            'annotated_image_url',
             'grape_species',
             'predicted_volume_cm3',
             'predicted_weight_g',
@@ -386,6 +389,7 @@ class VigilInferenceResultSerializer(serializers.ModelSerializer):
             'model_name',
             'block_name',
             'image_url',
+            'annotated_image_url',
             'predicted_volume_cm3',
             'predicted_weight_g',
             'confidence_score',
@@ -405,3 +409,16 @@ class VigilInferenceResultSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         url = obj.image.url
         return request.build_absolute_uri(url) if request else url
+
+    def get_annotated_image_url(self, obj):
+        annotated_path = (obj.features or {}).get('annotated_image_path')
+        if not annotated_path:
+            return None
+        media_url = getattr(settings, 'MEDIA_URL', '/media/')
+        if not media_url.endswith('/'):
+            media_url = f"{media_url}/"
+        relative = str(annotated_path).lstrip('/')
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(f"{media_url}{relative}")
+        return f"{media_url}{relative}"

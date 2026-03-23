@@ -12,6 +12,10 @@ from django.utils import timezone
 
 from .models.vigil import VigilTrainingSample, VigilMLModelVersion
 from .vigil_engine import VigilMLEngine
+from .vigil_ml_service import VigilMLService
+
+
+ml_service = VigilMLService()
 
 
 MAX_DATASET_FILES = 100
@@ -259,36 +263,15 @@ class GrapesNetImporter:
         if len(samples) < VigilMLEngine.min_samples:
             raise ValueError(f"At least {VigilMLEngine.min_samples} GrapesNet samples are required to train the model.")
 
-        last_model = VigilMLModelVersion.objects.filter(producer=producer, name=model_name).order_by("-version").first()
-        next_version = (last_model.version + 1) if last_model else 1
-        model_version = VigilMLModelVersion.objects.create(
+        model_version = ml_service.create_model_version(
             producer=producer,
             name=model_name,
-            version=next_version,
-            status="training",
             notes=notes,
             is_active=True,
+            algorithm="yolo-like-cv-ensemble-v2",
         )
-        engine = VigilMLEngine()
-        training_result = engine.train_model(model_version, samples)
-        VigilMLModelVersion.objects.filter(producer=producer).exclude(pk=model_version.pk).update(is_active=False)
-        model_version.status = "ready"
-        model_version.artifact_path = training_result["artifact_path"]
-        model_version.feature_schema = training_result["feature_schema"]
-        model_version.metrics = training_result["metrics"]
-        model_version.training_sample_count = training_result["training_sample_count"]
-        model_version.validation_sample_count = training_result["validation_sample_count"]
-        model_version.trained_at = timezone.now()
-        model_version.save(update_fields=[
-            "status",
-            "artifact_path",
-            "feature_schema",
-            "metrics",
-            "training_sample_count",
-            "validation_sample_count",
-            "is_active",
-            "trained_at",
-        ])
+
+        ml_service.train_model_sync(model_version=model_version, samples=samples)
         return model_version
 
     def _read_ground_truth(self, csv_path: Path) -> list[dict[str, str]]:

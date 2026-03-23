@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Database, FolderUp, Loader2, FlaskConical, CheckCircle2, HardDriveUpload } from "lucide-react";
+import { Database, FolderUp, Loader2, FlaskConical, CheckCircle2, HardDriveUpload, ChevronDown, ChevronUp } from "lucide-react";
 import api from "@/app/lib/api";
 
 interface DatasetDefinition {
@@ -45,6 +45,8 @@ type DirectoryFile = File & { webkitRelativePath?: string };
 
 export default function VigilDatasetImportPanel({ onImportComplete }: Props) {
     const [datasets, setDatasets] = useState<DatasetDefinition[]>([]);
+    const [selectedDatasetKey, setSelectedDatasetKey] = useState("grapesnet");
+    const [summaryExpanded, setSummaryExpanded] = useState(false);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [selectedFiles, setSelectedFiles] = useState<DirectoryFile[]>([]);
@@ -70,7 +72,13 @@ export default function VigilDatasetImportPanel({ onImportComplete }: Props) {
         setLoading(true);
         try {
             const response = await api.get("/vigil/ml/datasets/");
-            setDatasets(response.data);
+            const incomingDatasets = response.data as DatasetDefinition[];
+            setDatasets(incomingDatasets);
+            if (incomingDatasets.length > 0) {
+                const preferred = incomingDatasets.find((dataset) => dataset.key === "grapesnet") || incomingDatasets[0];
+                setSelectedDatasetKey(preferred.key);
+                setModelName(`${preferred.name} Model`);
+            }
         } catch (error) {
             console.error("Error loading dataset definitions:", error);
         } finally {
@@ -78,7 +86,13 @@ export default function VigilDatasetImportPanel({ onImportComplete }: Props) {
         }
     };
 
-    const grapesNet = datasets.find((dataset) => dataset.key === "grapesnet") || null;
+    const selectedDataset =
+        datasets.find((dataset) => dataset.key === selectedDatasetKey)
+        || datasets.find((dataset) => dataset.key === "grapesnet")
+        || null;
+
+    const isGrapesNetSelected = selectedDataset?.key === "grapesnet";
+
     const prioritizeGrapesNetFiles = (files: DirectoryFile[], maxFiles: number) => {
         const normalized = files.map((file, index) => {
             const relativePath = (file.webkitRelativePath || file.name).replace(/\\/g, "/");
@@ -92,7 +106,7 @@ export default function VigilDatasetImportPanel({ onImportComplete }: Props) {
             else if (lowered.includes("dataset 4/rgb-d/") && lowered.endsWith("_depth.png")) priority = 4;
             else if (lowered.includes("dataset 4/rgb-d/") && lowered.endsWith("_depth.raw")) priority = 5;
 
-            return { file, relativePath, priority, index };
+            return { file, priority, index };
         });
 
         const relevant = normalized
@@ -102,8 +116,13 @@ export default function VigilDatasetImportPanel({ onImportComplete }: Props) {
         return relevant.slice(0, maxFiles).map((item) => item.file);
     };
 
-    const cappedSelection = grapesNet ? prioritizeGrapesNetFiles(selectedFiles, grapesNet.max_files) : selectedFiles;
-    const selectionWasCapped = grapesNet ? selectedFiles.length > cappedSelection.length : false;
+    const cappedSelection = selectedDataset
+        ? (isGrapesNetSelected
+            ? prioritizeGrapesNetFiles(selectedFiles, selectedDataset.max_files)
+            : selectedFiles.slice(0, selectedDataset.max_files))
+        : selectedFiles;
+
+    const selectionWasCapped = selectedDataset ? selectedFiles.length > cappedSelection.length : false;
 
     const handleFolderSelection = (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(event.target.files || []) as DirectoryFile[];
@@ -112,15 +131,34 @@ export default function VigilDatasetImportPanel({ onImportComplete }: Props) {
         setErrorMessage(null);
     };
 
+    const handleDatasetSelection = (event: React.ChangeEvent<HTMLSelectElement>) => {
+        const datasetKey = event.target.value;
+        const nextDataset = datasets.find((dataset) => dataset.key === datasetKey);
+
+        setSelectedDatasetKey(datasetKey);
+        setSelectedFiles([]);
+        setResult(null);
+        setErrorMessage(null);
+
+        if (folderInputRef.current) {
+            folderInputRef.current.value = "";
+        }
+        if (nextDataset) {
+            setModelName(`${nextDataset.name} Model`);
+        }
+    };
+
     const submitImport = async (sourceMode: "upload" | "bundled") => {
-        if (!grapesNet) return;
+        if (!selectedDataset) return;
+
         setSubmitting(true);
         setResult(null);
         setErrorMessage(null);
+
         try {
             if (sourceMode === "upload") {
                 if (cappedSelection.length === 0) {
-                    alert("Choose a GrapesNet dataset folder before importing.");
+                    alert(`Choose a ${selectedDataset.name} dataset folder before importing.`);
                     setSubmitting(false);
                     return;
                 }
@@ -130,25 +168,27 @@ export default function VigilDatasetImportPanel({ onImportComplete }: Props) {
                 cappedSelection.forEach((file) => {
                     formData.append("files", file);
                 });
+
                 formData.append("relative_paths", JSON.stringify(relativePaths));
                 formData.append("source_mode", "upload");
                 formData.append("train_after_import", String(trainAfterImport));
                 formData.append("model_name", modelName);
                 formData.append("notes", notes);
-                formData.append("max_files", String(grapesNet.max_files));
+                formData.append("max_files", String(selectedDataset.max_files));
 
-                const response = await api.post(`/vigil/ml/datasets/${grapesNet.key}/import/`, formData);
+                const response = await api.post(`/vigil/ml/datasets/${selectedDataset.key}/import/`, formData);
                 setResult(response.data);
             } else {
-                const response = await api.post(`/vigil/ml/datasets/${grapesNet.key}/import/`, {
+                const response = await api.post(`/vigil/ml/datasets/${selectedDataset.key}/import/`, {
                     source_mode: "bundled",
                     train_after_import: trainAfterImport,
                     model_name: modelName,
                     notes,
-                    max_files: grapesNet.max_files,
+                    max_files: selectedDataset.max_files,
                 });
                 setResult(response.data);
             }
+
             setSelectedFiles([]);
             if (folderInputRef.current) {
                 folderInputRef.current.value = "";
@@ -169,131 +209,174 @@ export default function VigilDatasetImportPanel({ onImportComplete }: Props) {
 
     if (loading) {
         return (
-            <div className="flex justify-center p-10">
+            <div className="flex justify-center p-8">
                 <Loader2 className="animate-spin" style={{ color: "#9f1239" }} />
             </div>
         );
     }
 
-    if (!grapesNet) {
+    if (!selectedDataset) {
         return <p style={{ color: "#6b7280" }}>No dataset importers are configured.</p>;
     }
 
     return (
-        <div className="space-y-6">
-            <div className="rounded-2xl p-4 xl:p-5" style={{ backgroundColor: "#fffaf5", border: "1px solid #fed7aa" }}>
-                <div className="flex items-start gap-3 mb-4">
-                    <div className="p-2 rounded-lg" style={{ backgroundColor: "#ffedd5", color: "#9a3412" }}>
-                        <Database size={18} />
+        <div className="space-y-4">
+            <div className="rounded-2xl p-3 xl:p-4" style={{ backgroundColor: "#fffaf5", border: "1px solid #fed7aa" }}>
+                <div className="grid grid-cols-1 xl:grid-cols-[1fr_auto] gap-3 mb-3">
+                    <div className="flex items-start gap-3">
+                        <div className="p-2 rounded-lg" style={{ backgroundColor: "#ffedd5", color: "#9a3412" }}>
+                            <Database size={16} />
+                        </div>
+                        <div>
+                            <h3 className="text-base font-bold" style={{ color: "#262626" }}>{selectedDataset.name}</h3>
+                            <p className="text-sm" style={{ color: "#6b7280" }}>{selectedDataset.description}</p>
+                        </div>
                     </div>
-                    <div>
-                        <h3 className="text-lg font-bold" style={{ color: "#262626" }}>{grapesNet.name}</h3>
-                        <p className="text-sm" style={{ color: "#6b7280" }}>{grapesNet.description}</p>
+
+                    <div className="w-full xl:w-72">
+                        <label className="text-xs font-semibold block mb-1" style={{ color: "#7c2d12" }}>Dataset Selection</label>
+                        <select
+                            value={selectedDataset.key}
+                            onChange={handleDatasetSelection}
+                            className="w-full rounded-lg border p-2 text-sm"
+                            style={{ borderColor: "#fdba74", backgroundColor: "#ffffff", color: "#111827" }}
+                        >
+                            {datasets.map((dataset) => (
+                                <option key={dataset.key} value={dataset.key}>{dataset.name}</option>
+                            ))}
+                        </select>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 text-sm">
-                    <div className="rounded-xl p-4" style={{ backgroundColor: "#ffffff", border: "1px solid #fde68a" }}>
-                        <p className="font-semibold mb-2" style={{ color: "#92400e" }}>Observed Format</p>
-                        <p style={{ color: "#4b5563" }}>Dataset 4 is the labeled weight-estimation subset. The key file is <span className="font-medium">Ground Truth for Dataset 4.csv</span>, which maps each <span className="font-medium">*_Color.png</span> image to height, width, distance, and ground-truth weight.</p>
-                    </div>
-                    <div className="rounded-xl p-4" style={{ backgroundColor: "#ffffff", border: "1px solid #dbeafe" }}>
-                        <p className="font-semibold mb-2" style={{ color: "#1d4ed8" }}>Importer Focus</p>
-                        <p style={{ color: "#4b5563" }}>This importer targets the labeled Dataset 4 subset and caps processed files to <span className="font-medium">{grapesNet.max_files}</span>. It pulls paired color images and depth metadata, then creates training samples for the VIGIL model.</p>
-                    </div>
+                <div className="rounded-xl p-3" style={{ backgroundColor: "#ffffff", border: "1px solid #fde68a" }}>
+                    <p className="font-semibold text-sm mb-1" style={{ color: "#92400e" }}>Brief Summary</p>
+                    <p className="text-sm" style={{ color: "#4b5563" }}>
+                        {isGrapesNetSelected
+                            ? `GrapesNet Dataset 4 is the labeled subset for grape weight estimation. Imports are capped at ${selectedDataset.max_files} files, prioritizing labeled color images and paired depth metadata.`
+                            : `${selectedDataset.name} is configured for import with a file cap of ${selectedDataset.max_files}. Expand below to view format expectations and ingestion details.`}
+                    </p>
                 </div>
 
-                <div className="mt-4 grid grid-cols-1 gap-3 text-sm">
-                    <div className="rounded-xl p-3" style={{ backgroundColor: "#ffffff", border: "1px solid #f3f4f6" }}>
-                        <p className="font-medium" style={{ color: "#111827" }}>Ground Truth CSV</p>
-                        <p style={{ color: "#6b7280" }}>{grapesNet.expected_format.ground_truth_csv}</p>
+                <button
+                    type="button"
+                    onClick={() => setSummaryExpanded((previous) => !previous)}
+                    className="mt-3 inline-flex items-center gap-2 text-sm font-semibold"
+                    style={{ color: "#9a3412" }}
+                >
+                    {summaryExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    {summaryExpanded ? "Hide dataset details" : "Show dataset details"}
+                </button>
+
+                {summaryExpanded ? (
+                    <div className="mt-3 grid grid-cols-1 gap-3 text-sm">
+                        <div className="rounded-xl p-3" style={{ backgroundColor: "#ffffff", border: "1px solid #dbeafe" }}>
+                            <p className="font-semibold mb-1" style={{ color: "#1d4ed8" }}>Importer Focus</p>
+                            <p style={{ color: "#4b5563" }}>
+                                {isGrapesNetSelected
+                                    ? `Targets labeled Dataset 4 rows and creates training samples from paired color imagery and depth metadata, up to ${selectedDataset.max_files} files per import.`
+                                    : `Uses the current importer definition for ${selectedDataset.name} and enforces the configured max file cap of ${selectedDataset.max_files}.`}
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                            <div className="rounded-xl p-3" style={{ backgroundColor: "#ffffff", border: "1px solid #f3f4f6" }}>
+                                <p className="font-medium" style={{ color: "#111827" }}>Ground Truth CSV</p>
+                                <p style={{ color: "#6b7280" }}>{selectedDataset.expected_format.ground_truth_csv || "N/A"}</p>
+                            </div>
+                            <div className="rounded-xl p-3" style={{ backgroundColor: "#ffffff", border: "1px solid #f3f4f6" }}>
+                                <p className="font-medium" style={{ color: "#111827" }}>Color Image Pattern</p>
+                                <p style={{ color: "#6b7280" }}>{selectedDataset.expected_format.color_images || "N/A"}</p>
+                            </div>
+                            <div className="rounded-xl p-3" style={{ backgroundColor: "#ffffff", border: "1px solid #f3f4f6" }}>
+                                <p className="font-medium" style={{ color: "#111827" }}>Depth Metadata Pattern</p>
+                                <p style={{ color: "#6b7280" }}>{selectedDataset.expected_format.depth_metadata || "N/A"}</p>
+                            </div>
+                        </div>
                     </div>
-                    <div className="rounded-xl p-3" style={{ backgroundColor: "#ffffff", border: "1px solid #f3f4f6" }}>
-                        <p className="font-medium" style={{ color: "#111827" }}>Color Image Pattern</p>
-                        <p style={{ color: "#6b7280" }}>{grapesNet.expected_format.color_images}</p>
-                    </div>
-                    <div className="rounded-xl p-3" style={{ backgroundColor: "#ffffff", border: "1px solid #f3f4f6" }}>
-                        <p className="font-medium" style={{ color: "#111827" }}>Depth Metadata Pattern</p>
-                        <p style={{ color: "#6b7280" }}>{grapesNet.expected_format.depth_metadata}</p>
-                    </div>
-                </div>
+                ) : null}
             </div>
 
-            <div className="grid grid-cols-1 2xl:grid-cols-2 gap-6">
-                <div className="rounded-2xl p-4 xl:p-5 space-y-4" style={{ backgroundColor: "#ffffff", border: "1px solid #e5e7eb" }}>
-                    <div className="flex items-center gap-3">
-                        <FolderUp size={18} style={{ color: "#9f1239" }} />
-                        <h3 className="text-base font-bold" style={{ color: "#262626" }}>Upload Dataset Folder</h3>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <div className="rounded-xl p-3 xl:p-4 space-y-3" style={{ backgroundColor: "#ffffff", border: "1px solid #e5e7eb" }}>
+                    <div className="flex items-center gap-2">
+                        <FolderUp size={16} style={{ color: "#9f1239" }} />
+                        <h3 className="text-sm font-bold" style={{ color: "#262626" }}>Upload Dataset Folder</h3>
                     </div>
 
-                    <label className="block rounded-xl border border-dashed p-4 cursor-pointer" style={{ borderColor: "#fda4af", backgroundColor: "#fff1f2" }}>
+                    <label className="block rounded-xl border border-dashed p-3 cursor-pointer" style={{ borderColor: "#fda4af", backgroundColor: "#fff1f2" }}>
                         <div className="flex items-center gap-3">
-                            <HardDriveUpload size={18} style={{ color: "#9f1239" }} />
+                            <HardDriveUpload size={16} style={{ color: "#9f1239" }} />
                             <div>
-                                <p className="font-medium" style={{ color: "#262626" }}>
-                                    {selectedFiles.length > 0 ? `${cappedSelection.length} files selected` : "Choose a GrapesNet folder"}
+                                <p className="font-medium text-sm" style={{ color: "#262626" }}>
+                                    {selectedFiles.length > 0 ? `${cappedSelection.length} files selected` : `Choose a ${selectedDataset.name} folder`}
                                 </p>
-                                <p className="text-xs" style={{ color: "#6b7280" }}>The importer preserves relative paths and prioritizes Dataset 4 files before applying the {grapesNet.max_files}-file cap.</p>
+                                <p className="text-xs" style={{ color: "#6b7280" }}>
+                                    {isGrapesNetSelected
+                                        ? `Prioritizes Dataset 4 files before applying the ${selectedDataset.max_files}-file cap.`
+                                        : `Preserves folder paths and applies a ${selectedDataset.max_files}-file cap.`}
+                                </p>
                             </div>
                         </div>
                         <input ref={folderInputRef} type="file" multiple className="hidden" onChange={handleFolderSelection} />
                     </label>
 
                     {selectionWasCapped ? (
-                        <p className="text-sm" style={{ color: "#b45309" }}>Your folder contains extra files. Only the most relevant Dataset 4 files are queued, up to {grapesNet.max_files} items.</p>
+                        <p className="text-xs" style={{ color: "#b45309" }}>Your folder contains extra files. Only the first {selectedDataset.max_files} queued files will be imported.</p>
                     ) : null}
 
                     <button
                         type="button"
                         disabled={submitting || cappedSelection.length === 0}
                         onClick={() => submitImport("upload")}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold transition"
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl font-semibold text-sm transition"
                         style={{ backgroundColor: "#9f1239", color: "#ffffff", opacity: submitting || cappedSelection.length === 0 ? 0.6 : 1 }}
                     >
-                        {submitting ? <Loader2 size={18} className="animate-spin" /> : <FolderUp size={18} />}
+                        {submitting ? <Loader2 size={16} className="animate-spin" /> : <FolderUp size={16} />}
                         Import Uploaded Folder
                     </button>
                 </div>
 
-                <div className="rounded-2xl p-4 xl:p-5 space-y-4" style={{ backgroundColor: "#f0fdf4", border: "1px solid #bbf7d0" }}>
-                    <div className="flex items-center gap-3">
-                        <FlaskConical size={18} style={{ color: "#166534" }} />
-                        <h3 className="text-base font-bold" style={{ color: "#262626" }}>Import and Train Settings</h3>
+                <div className="rounded-xl p-3 xl:p-4 space-y-3" style={{ backgroundColor: "#f0fdf4", border: "1px solid #bbf7d0" }}>
+                    <div className="flex items-center gap-2">
+                        <FlaskConical size={16} style={{ color: "#166534" }} />
+                        <h3 className="text-sm font-bold" style={{ color: "#262626" }}>Import and Train Settings</h3>
                     </div>
 
                     <input
-                        className="w-full p-2 border rounded-md text-gray-900 placeholder:text-gray-500"
+                        className="w-full px-2.5 py-2 border rounded-md text-sm text-gray-900 placeholder:text-gray-500"
                         placeholder="Model Name"
                         value={modelName}
                         onChange={(e) => setModelName(e.target.value)}
                     />
                     <textarea
-                        className="w-full p-2 border rounded-md text-gray-900 placeholder:text-gray-500"
+                        className="w-full px-2.5 py-2 border rounded-md text-sm text-gray-900 placeholder:text-gray-500"
                         rows={3}
                         placeholder="Optional notes about this dataset import"
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
                     />
-                    <label className="flex items-center gap-3 text-sm" style={{ color: "#374151" }}>
+                    <label className="flex items-center gap-2 text-sm" style={{ color: "#374151" }}>
                         <input type="checkbox" checked={trainAfterImport} onChange={(e) => setTrainAfterImport(e.target.checked)} />
                         Train a model immediately after importing the dataset
                     </label>
 
-                    {grapesNet.bundled_root_available ? (
+                    {selectedDataset.bundled_root_available ? (
                         <button
                             type="button"
                             disabled={submitting}
                             onClick={() => submitImport("bundled")}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold transition"
+                            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl font-semibold text-sm transition"
                             style={{ backgroundColor: "#166534", color: "#ffffff", opacity: submitting ? 0.6 : 1 }}
                         >
-                            {submitting ? <Loader2 size={18} className="animate-spin" /> : <Database size={18} />}
-                            Import Bundled GrapesNet Subset
+                            {submitting ? <Loader2 size={16} className="animate-spin" /> : <Database size={16} />}
+                            {`Import Bundled ${selectedDataset.name} Subset`}
                         </button>
                     ) : (
-                        <div className="rounded-xl p-4" style={{ backgroundColor: "#ffffff", border: "1px solid #d1fae5" }}>
+                        <div className="rounded-xl p-3" style={{ backgroundColor: "#ffffff", border: "1px solid #d1fae5" }}>
                             <p className="text-sm font-medium mb-1" style={{ color: "#166534" }}>Bundled source unavailable</p>
-                            <p className="text-sm" style={{ color: "#6b7280" }}>The local GrapesNet folder is not present in the workspace. Use the folder upload on the left to import and train from your dataset copy.</p>
+                            <p className="text-xs" style={{ color: "#6b7280" }}>
+                                {`No local bundled folder was detected for ${selectedDataset.name}. Use folder upload to import and train from your dataset copy.`}
+                            </p>
                         </div>
                     )}
                 </div>
@@ -331,7 +414,7 @@ export default function VigilDatasetImportPanel({ onImportComplete }: Props) {
                         <p className="text-sm mt-3" style={{ color: "#6b7280" }}>No new samples were added because these files were already imported. Training can still use the existing sample pool shown above.</p>
                     ) : null}
                     {result.capped_files ? (
-                        <p className="text-sm mt-3" style={{ color: "#b45309" }}>The upload exceeded the dataset cap, so only the first {grapesNet.max_files} files were processed.</p>
+                        <p className="text-sm mt-3" style={{ color: "#b45309" }}>The upload exceeded the dataset cap, so only the first {selectedDataset.max_files} files were processed.</p>
                     ) : null}
                     {result.trained_model ? (
                         <p className="text-sm mt-3" style={{ color: "#166534" }}>Trained model: {result.trained_model.name} v{result.trained_model.version} using {result.trained_model.training_sample_count ?? result.available_training_samples} samples.</p>

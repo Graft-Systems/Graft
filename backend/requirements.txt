@@ -17,3 +17,5 @@ langchain-anthropic==0.1.15
 langchain-google-genai
 numpy
 Pillow
+scikit-learn==1.5.2
+opencv-python-headless==4.10.0.84
