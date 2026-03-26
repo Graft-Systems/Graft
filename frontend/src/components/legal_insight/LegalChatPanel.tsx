@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import api from "@/app/lib/api";
+import axios from "axios";
 
 type ChatMessage = {
   id: string;
@@ -36,7 +37,7 @@ export default function LegalChatPanel({ stateCode }: { stateCode: string }) {
       id: "m0",
       role: "ai",
       content:
-        "Ask a niche compliance question (stub). In the real build, this chatbot will use your NY Logic Tree + State Profile to answer with citations and explain decision paths.",
+        `I am your ${stateCode} compliance copilot. Ask about permit order, blockers, timelines, or cross-state comparisons. I will ground answers in your ${stateCode} profile + retrieved legal excerpts with citations.`,
       createdAt: 0,
     },
   ]);
@@ -69,10 +70,12 @@ export default function LegalChatPanel({ stateCode }: { stateCode: string }) {
           unified_profile = {};
         }
 
-        const res = await api.post("/legal-insight/chat/", {
-          message: text,
-          state_code: stateCode,
-          unified_profile,
+        const res = await api.post("/ai/chat/", {
+          message:
+            `Legal Insight context:\n` +
+            `- State: ${stateCode}\n` +
+            `- Unified profile JSON: ${JSON.stringify(unified_profile)}\n\n` +
+            `User question: ${text}`,
         });
 
         const aiMsg: ChatMessage = {
@@ -83,11 +86,26 @@ export default function LegalChatPanel({ stateCode }: { stateCode: string }) {
         };
 
         setMessages((prev) => [...prev, aiMsg]);
-      } catch {
+      } catch (error: unknown) {
+        let errorMessage = "Unable to reach AI chat right now.";
+        if (axios.isAxiosError(error)) {
+          const status = error.response?.status;
+          const backendError =
+            (error.response?.data as { error?: string; message?: string } | undefined)?.error ||
+            (error.response?.data as { error?: string; message?: string } | undefined)?.message;
+          if (status === 401) errorMessage = "Session expired. Please log in again.";
+          else if (status === 403) errorMessage = "You do not have permission for this chat endpoint.";
+          else if (backendError) errorMessage = backendError;
+          else if (status) errorMessage = `Chat request failed (HTTP ${status}).`;
+        }
+
         const aiMsg: ChatMessage = {
           id: `a_${Date.now() + 1}`,
           role: "ai",
-          content: buildPlaceholderLegalResponse(text),
+          content:
+            `${errorMessage}\n\n` +
+            "Fallback answer (local template):\n" +
+            buildPlaceholderLegalResponse(text),
           createdAt: Date.now() + 1,
         };
         setMessages((prev) => [...prev, aiMsg]);
@@ -99,9 +117,24 @@ export default function LegalChatPanel({ stateCode }: { stateCode: string }) {
 
   return (
     <div className="space-y-4">
-      <div style={{ fontWeight: 800, color: "#111827" }}>Niche Chatbot</div>
-      <div style={{ color: "#6b7280", fontSize: 12 }}>
-        Routing assistant using your saved Unified Profile for the selected state.
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ fontWeight: 800, color: "#111827" }}>State-Aware Legal Assistant</div>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 800,
+            padding: "4px 8px",
+            borderRadius: 999,
+            backgroundColor: "#fff1f2",
+            color: "#9f1239",
+            border: "1px solid #fecdd3",
+          }}
+        >
+          {stateCode}
+        </span>
+      </div>
+      <div style={{ color: "#6b7280", fontSize: 12, backgroundColor: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 10, padding: 10 }}>
+        Ask targeted regulatory questions for {stateCode}. I use your saved profile and only broaden to other states when you explicitly ask to compare.
       </div>
 
       <div
@@ -109,7 +142,7 @@ export default function LegalChatPanel({ stateCode }: { stateCode: string }) {
           border: "1px solid #e5e5e5",
           borderRadius: 14,
           padding: 12,
-          backgroundColor: "#fff",
+          backgroundColor: "#fffafc",
           maxHeight: 260,
           overflow: "auto",
         }}
@@ -128,7 +161,7 @@ export default function LegalChatPanel({ stateCode }: { stateCode: string }) {
                   maxWidth: 520,
                   padding: "10px 12px",
                   borderRadius: 12,
-                  backgroundColor: m.role === "user" ? "#e11d48" : "#f3f4f6",
+                  backgroundColor: m.role === "user" ? "#be123c" : "#fff1f2",
                   color: m.role === "user" ? "#fff" : "#111827",
                   whiteSpace: "pre-wrap",
                   fontSize: 13,
@@ -146,7 +179,7 @@ export default function LegalChatPanel({ stateCode }: { stateCode: string }) {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="e.g., How do tariffs affect my NY importer application?"
+          placeholder={`e.g., What is blocking my ${stateCode} brand registration right now?`}
           style={{
             flex: 1,
             borderRadius: 10,

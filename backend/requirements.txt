@@ -17,3 +17,4 @@ langchain-anthropic==0.1.15
 langchain-google-genai
 numpy
 Pillow
+pypdf

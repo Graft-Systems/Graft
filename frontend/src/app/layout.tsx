@@ -29,8 +29,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${titillium.variable} antialiased`}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${titillium.variable} antialiased`} suppressHydrationWarning>
         {/* Navbar removed from here so it doesn't show in the dashboard */}
         {children}
       </body>

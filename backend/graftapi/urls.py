@@ -49,10 +49,10 @@ from .views_vigil import (
 )
 
 from .legal_insight_views import (
-    legal_insight_chat,
     legal_insight_form_automator_generate,
     legal_insight_input_map,
     legal_insight_logic_trees,
+    legal_insight_state_corpus,
     legal_insight_state_profiles,
     legal_insight_upload_document,
 )
@@ -86,10 +86,10 @@ urlpatterns = [
 
     # Legal Insight MVP endpoints (under /api/)
     path("legal-insight/state-profiles/", legal_insight_state_profiles, name="legal-insight-state-profiles"),
+    path("legal-insight/state-corpus/<str:state_code>/", legal_insight_state_corpus, name="legal-insight-state-corpus"),
     path("legal-insight/logic-trees/", legal_insight_logic_trees, name="legal-insight-logic-trees"),
     path("legal-insight/input-map/<str:state_code>/", legal_insight_input_map, name="legal-insight-input-map"),
     path("legal-insight/form-automator/generate/", legal_insight_form_automator_generate, name="legal-insight-form-automator-generate"),
-    path("legal-insight/chat/", legal_insight_chat, name="legal-insight-chat"),
     path("legal-insight/documents/upload/", legal_insight_upload_document, name="legal-insight-documents-upload"),
     # VIGIL endpoints
     path("vigil/summary/", VigilDashboardSummaryView.as_view(), name="vigil-summary"),

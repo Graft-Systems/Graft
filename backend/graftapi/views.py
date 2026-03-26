@@ -22,6 +22,7 @@ from .models.pricing import WholesalePrice
 from .models.contacts import RetailContact, LocationRequest
 from .models.marketing import MarketingMaterial
 from .models.distribution import Delivery, RetailSale
+from .legal_rag import format_citations, retrieve_chunks
 
 
 class RegisterView(generics.CreateAPIView):
@@ -296,8 +297,6 @@ def ai_chat(request):
         "message": "ai response here"
     }
     """
-    from .engine import get_ai_engine
-    
     try:
         user_message = request.data.get("message", "").strip()
         
@@ -307,17 +306,131 @@ def ai_chat(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Get the AI engine
-        engine = get_ai_engine()
-        
         # Prepare context with user info
         context = {
             "user": request.user.username,
             "timestamp": str(__import__('datetime').datetime.now())
         }
         
+        # Optional Legal Insight RAG context:
+        # frontend sends:
+        #   Legal Insight context:
+        #   - State: TX
+        #   - Unified profile JSON: {...}
+        #   User question: ...
+        rag_enriched_message = user_message
+        retrieved_chunks = []
+        cross_state_requested = False
+        if "Legal Insight context:" in user_message:
+            state_code = None
+            question = user_message
+
+            for raw_line in user_message.splitlines():
+                line = raw_line.strip()
+                if line.lower().startswith("- state:"):
+                    state_code = line.split(":", 1)[1].strip().upper()
+                elif line.lower().startswith("user question:"):
+                    question = line.split(":", 1)[1].strip()
+
+            q_lower = question.lower()
+            cross_state_requested = any(
+                token in q_lower
+                for token in [
+                    "compare",
+                    "compared",
+                    "versus",
+                    " vs ",
+                    "other state",
+                    "other states",
+                    "across states",
+                    "strictest",
+                    "more strict",
+                    "less strict",
+                    "than california",
+                    "than texas",
+                    "than florida",
+                    "than new york",
+                    "than illinois",
+                ]
+            )
+
+            # Default behavior: retrieve only selected state.
+            retrieved_chunks = retrieve_chunks(question, state_code=state_code, top_k=6)
+
+            # Only widen scope when user explicitly asks for cross-state comparison.
+            if cross_state_requested:
+                cross_candidates = retrieve_chunks(question, state_code=None, top_k=18)
+                selected_state = (state_code or "").upper()
+                seen_states = {selected_state} if selected_state else set()
+                cross_state_chunks = []
+                for chunk in cross_candidates:
+                    if chunk.state_code in seen_states:
+                        continue
+                    cross_state_chunks.append(chunk)
+                    seen_states.add(chunk.state_code)
+                    if len(cross_state_chunks) >= 4:
+                        break
+                if cross_state_chunks:
+                    retrieved_chunks = retrieved_chunks + cross_state_chunks
+
+            if retrieved_chunks:
+                retrieval_mode_note = (
+                    "Retrieval mode: cross-state comparison requested by user. "
+                    "Compare the selected state to the other cited states only."
+                    if cross_state_requested
+                    else "Retrieval mode: selected-state only."
+                )
+                retrieved_context = "\n\n".join(
+                    [
+                        (
+                            f"[{chunk.state_code}] {chunk.source_name} "
+                            f"(page {chunk.page}, chunk {chunk.chunk_id})\n"
+                            f"{chunk.text}"
+                        )
+                        for chunk in retrieved_chunks
+                    ]
+                )
+                rag_enriched_message = (
+                    f"{user_message}\n\n"
+                    f"{retrieval_mode_note}\n\n"
+                    "Retrieved legal context (use for grounded answer):\n"
+                    f"{retrieved_context}\n\n"
+                    "Answering rules:\n"
+                    "- If cross-state comparison is requested, explicitly compare at least 3 cited states.\n"
+                    "- If evidence is insufficient for a ranking, say so clearly and explain why.\n"
+                    "- Do not claim facts that are not present in the retrieved excerpts.\n\n"
+                    "Citations:\n"
+                    f"{format_citations(retrieved_chunks)}"
+                )
+        
         # Get AI response
-        ai_response = engine.get_statistics_insights(user_message, context)
+        try:
+            from .engine import get_ai_engine
+            engine = get_ai_engine()
+            ai_response = engine.get_statistics_insights(rag_enriched_message, context)
+        except Exception as engine_error:
+            # Graceful fallback for Legal Insight mode so UI does not receive a hard 500.
+            if "Legal Insight context:" in user_message:
+                if retrieved_chunks:
+                    top = retrieved_chunks[:3]
+                    top_citations = format_citations(top)
+                    ai_response = (
+                        "AI engine is temporarily unavailable, but I found relevant legal excerpts for your question.\n\n"
+                        f"Engine error: {str(engine_error)}\n\n"
+                        "Suggested next actions:\n"
+                        "1) Review the cited excerpts and confirm your current workflow stage.\n"
+                        "2) Verify your required uploads/registrations for the selected state.\n"
+                        "3) Re-run this question after AI service recovery for a full narrative answer.\n\n"
+                        "Top citations:\n"
+                        f"{top_citations}"
+                    )
+                else:
+                    ai_response = (
+                        "AI engine is temporarily unavailable and no matching legal excerpts were found for this query. "
+                        "Please try a more specific question with a state code and workflow step."
+                    )
+            else:
+                raise engine_error
         
         return Response(
             {"message": ai_response},

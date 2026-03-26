@@ -65,11 +65,11 @@ export default function DocumentVaultPanel() {
           style={{
             padding: "10px 12px",
             borderRadius: 10,
-            border: "1px solid #e5e5e5",
-            backgroundColor: "#fff",
+            border: "1px solid #be123c",
+            backgroundColor: "#be123c",
             cursor: "pointer",
-            fontWeight: 600,
-            color: "#111827",
+            fontWeight: 700,
+            color: "#fff",
           }}
         >
           Select files
@@ -85,7 +85,7 @@ export default function DocumentVaultPanel() {
         </div>
       </div>
 
-      <div>
+      <div style={{ border: "1px solid #fecdd3", borderRadius: 12, padding: 12, backgroundColor: "#fffafc" }}>
         <div style={{ fontWeight: 700, color: "#111827", fontSize: 13, marginBottom: 8 }}>
           Vault items
         </div>

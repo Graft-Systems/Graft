@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import api from "@/app/lib/api";
+import axios from "axios";
 
 type Step = {
   id: string;
@@ -18,12 +19,14 @@ export default function FormAutomatorPanel({ stateCode }: { stateCode: string })
   const [completed, setCompleted] = useState<Record<string, boolean>>({});
   const [draftPacketPreview, setDraftPacketPreview] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
 
   const total = steps.length;
   const doneCount = steps.filter((s) => completed[s.id]).length;
 
   const syncFromBackend = async () => {
     setLoading(true);
+    setErrorText(null);
     try {
       const raw = localStorage.getItem(storageProfileKey);
       const unified_profile = raw ? JSON.parse(raw) : {};
@@ -51,6 +54,17 @@ export default function FormAutomatorPanel({ stateCode }: { stateCode: string })
           draft_packet_preview: nextDraft,
         })
       );
+    } catch (error: unknown) {
+      let message = "Unable to generate draft packet from backend.";
+      if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        const backendError =
+          (error.response?.data as { error?: string } | undefined)?.error || error.message;
+        if (status === 401) message = "Session expired. Please log in again.";
+        else if (status) message = `${backendError} (HTTP ${status})`;
+        else message = backendError;
+      }
+      setErrorText(message);
     } finally {
       setLoading(false);
     }
@@ -67,9 +81,24 @@ export default function FormAutomatorPanel({ stateCode }: { stateCode: string })
         Generate draft packets from your state profile + unified interview data.
       </div>
 
-      <div style={{ fontWeight: 800, color: "#111827" }}>
+      <div style={{ fontWeight: 800, color: "#111827", backgroundColor: "#fff1f2", border: "1px solid #fecdd3", borderRadius: 10, padding: "8px 10px" }}>
         Draft pipeline progress: {doneCount}/{total} {loading ? "(syncing…)" : ""}
       </div>
+      {errorText ? (
+        <div
+          style={{
+            border: "1px solid #fecaca",
+            backgroundColor: "#fff1f2",
+            color: "#9f1239",
+            borderRadius: 10,
+            padding: "8px 10px",
+            fontSize: 12,
+            fontWeight: 600,
+          }}
+        >
+          {errorText}
+        </div>
+      ) : null}
 
       <div className="space-y-2">
         {steps.map((s) => {
@@ -84,7 +113,7 @@ export default function FormAutomatorPanel({ stateCode }: { stateCode: string })
                 gap: 10,
                 padding: "10px 12px",
                 borderRadius: 12,
-                border: "1px solid #e5e5e5",
+                border: "1px solid #fecdd3",
                 backgroundColor: isDone ? "#fff1f2" : "#fff",
               }}
             >
@@ -105,8 +134,8 @@ export default function FormAutomatorPanel({ stateCode }: { stateCode: string })
           style={{
             padding: "10px 12px",
             borderRadius: 10,
-            border: "1px solid #e5e5e5",
-            backgroundColor: "#e11d48",
+            border: "1px solid #be123c",
+            backgroundColor: "#be123c",
             color: "#fff",
             fontWeight: 800,
           }}
@@ -119,8 +148,8 @@ export default function FormAutomatorPanel({ stateCode }: { stateCode: string })
           style={{
             padding: "10px 12px",
             borderRadius: 10,
-            border: "1px solid #e5e5e5",
-            backgroundColor: "#fff",
+            border: "1px solid #fecdd3",
+            backgroundColor: "#fff1f2",
             color: "#111827",
             fontWeight: 650,
           }}

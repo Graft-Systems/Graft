@@ -19,6 +19,100 @@ from .legal_insight_templates import (
     STATE_PROFILES,
     TTB_5100_24_FORM_FIELD_MAP,
 )
+from .legal_rag import state_corpus_summary
+
+ALL_STATE_CODES = [
+    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
+    "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+    "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+    "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+    "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY",
+]
+
+
+def _build_generic_state_profile(state_code: str) -> Dict[str, Any]:
+    code = (state_code or "").upper() or "NA"
+    return {
+        "state_code": code,
+        "primary_source_rule": {
+            "label": f"Primary American Source of Supply / {code} licensed channel arrangement",
+            "required": True,
+            "primary_source_name": f"{code}: Brand should be supplied through a licensed importer/wholesaler channel with retained agreement evidence.",
+        },
+        "physical_office_requirement": {
+            "label": f"{code} licensed premises or equivalent office evidence",
+            "required": True,
+            "office_types_allowed": ["USOffice", "ContractWithLicensedImporter"],
+            "flag_if_missing": True,
+        },
+        "timelines": {
+            "average_processing_days_by_permit": [
+                {"permit_name": "TTB Basic Permit (Importer/Wholesaler activity)", "min_days": 34, "max_days": 75},
+                {"permit_name": "TTB COLA (Wine labels)", "min_days": 6, "max_days": 15},
+                {"permit_name": f"{code} importer/channel licensing review", "min_days": 30, "max_days": 120},
+                {"permit_name": f"{code} brand/product registration review", "min_days": 10, "max_days": 90},
+            ]
+        },
+    }
+
+
+def _build_generic_input_map(state_code: str) -> Dict[str, Any]:
+    code = (state_code or "").upper() or "NA"
+    lc = code.lower()
+    return {
+        "state_code": code,
+        "fields": [
+            {"key": "exporter_country", "label": "Exporter country", "type": "string", "required": True, "source_form": "Multiple forms (federal + state)"},
+            {"key": "primary_american_source_registered", "label": f"Primary American Source registration ({code})", "type": "boolean", "required": True, "source_form": f"{code} importer/channel arrangement"},
+            {"key": "us_physical_office_present", "label": "US physical office/premises present", "type": "boolean", "required": True, "source_form": "Federal basic permit prerequisites (TTB)"},
+            {"key": "licensed_us_importer_contract_present", "label": "Contract with licensed US importer present", "type": "boolean", "required": True, "source_form": "Federal basic permit prerequisites (TTB)"},
+            {"key": "ttb_cola_submitted", "label": "TTB COLA submitted (yes/no)", "type": "boolean", "required": False, "source_form": "TTB COLA status"},
+            {"key": "ttb_cola_approved", "label": "TTB COLA approved (yes/no)", "type": "boolean", "required": False, "source_form": "TTB COLA status"},
+            {"key": f"{lc}_state_channel_permit_present", "label": f"{code} state channel/import permit present", "type": "boolean", "required": False, "source_form": f"{code} state permit"},
+            {"key": f"{lc}_state_document_ids", "label": f"{code} state compliance document IDs (from vault)", "type": "array", "required": False, "source_form": "Document Vault"},
+        ],
+    }
+
+
+def _build_generic_logic_tree(state_code: str) -> Dict[str, Any]:
+    code = (state_code or "").upper() or "NA"
+    root = f"{code}_root"
+    return {
+        "state_code": code,
+        "root_id": root,
+        "nodes": [
+            {
+                "id": root,
+                "title": f"{code} routing (generic): federal prerequisites -> state channel enablement -> state brand registration",
+                "type": "rule",
+                "children": [f"{code}_ttb_basic_permit", f"{code}_ttb_cola"],
+            },
+            {
+                "id": f"{code}_ttb_basic_permit",
+                "title": "TTB Basic Permit (Importer/Wholesaler activity)",
+                "type": "requirement",
+                "children": [f"{code}_state_channel_permit"],
+            },
+            {
+                "id": f"{code}_ttb_cola",
+                "title": "TTB COLA (Wine labels)",
+                "type": "requirement",
+                "children": [f"{code}_brand_registration"],
+            },
+            {
+                "id": f"{code}_state_channel_permit",
+                "title": f"{code} state channel/import permit",
+                "type": "action",
+                "children": [f"{code}_brand_registration"],
+            },
+            {
+                "id": f"{code}_brand_registration",
+                "title": f"{code} brand/product registration",
+                "type": "action",
+                "children": [],
+            },
+        ],
+    }
 
 
 def _deep_get(obj: Any, path: str) -> Any:
@@ -144,22 +238,33 @@ def _compute_step_completion(state_code: str, unified_profile: Dict[str, Any], l
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated])
 def legal_insight_state_profiles(request):
-    return Response({"states": {k: STATE_PROFILES[k] for k in STATE_CODES}})
+    states = {code: STATE_PROFILES.get(code) or _build_generic_state_profile(code) for code in ALL_STATE_CODES}
+    return Response({"states": states})
 
 
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated])
 def legal_insight_logic_trees(request):
-    return Response({"states": {k: LOGIC_TREES[k] for k in STATE_CODES}})
+    states = {code: LOGIC_TREES.get(code) or _build_generic_logic_tree(code) for code in ALL_STATE_CODES}
+    return Response({"states": states})
+
+
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated])
+def legal_insight_state_corpus(request, state_code: str):
+    state_code = (state_code or "").upper()
+    if len(state_code) != 2:
+        return Response({"error": "Invalid state_code"}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(state_corpus_summary(state_code))
 
 
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated])
 def legal_insight_input_map(request, state_code: str):
     state_code = (state_code or "").upper()
-    if state_code not in INPUT_MAPS:
+    if len(state_code) != 2:
         return Response({"error": "Invalid state_code"}, status=status.HTTP_400_BAD_REQUEST)
-    return Response({"state_code": state_code, "input_map": INPUT_MAPS[state_code]})
+    return Response({"state_code": state_code, "input_map": INPUT_MAPS.get(state_code) or _build_generic_input_map(state_code)})
 
 
 @api_view(["POST"])
@@ -167,9 +272,9 @@ def legal_insight_input_map(request, state_code: str):
 def legal_insight_form_automator_generate(request):
     state_code = (request.data.get("state_code") or "").upper()
     unified_profile = request.data.get("unified_profile") or {}
-    logic_tree = LOGIC_TREES.get(state_code)
-    if not logic_tree:
+    if len(state_code) != 2:
         return Response({"error": "Invalid state_code"}, status=status.HTTP_400_BAD_REQUEST)
+    logic_tree = LOGIC_TREES.get(state_code) or _build_generic_logic_tree(state_code)
 
     steps = _compute_step_completion(state_code, unified_profile, logic_tree)
 

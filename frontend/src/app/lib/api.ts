@@ -40,4 +40,44 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
+api.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+        const originalRequest = error?.config as (typeof error.config & { _retry?: boolean }) | undefined;
+        const status = error?.response?.status;
+
+        // Attempt one token refresh for authenticated endpoints.
+        if (
+            status === 401 &&
+            originalRequest &&
+            !originalRequest._retry &&
+            !String(originalRequest.url || "").includes("/login/") &&
+            !String(originalRequest.url || "").includes("/register/") &&
+            !String(originalRequest.url || "").includes("/token/refresh/")
+        ) {
+            originalRequest._retry = true;
+            const refresh = localStorage.getItem("refresh");
+            if (!refresh) {
+                return Promise.reject(error);
+            }
+            try {
+                const tokenRes = await api.post("/token/refresh/", { refresh });
+                const nextAccess = tokenRes.data?.access;
+                if (nextAccess) {
+                    localStorage.setItem("access", nextAccess);
+                    originalRequest.headers = originalRequest.headers || {};
+                    originalRequest.headers.Authorization = `Bearer ${nextAccess}`;
+                }
+                return api(originalRequest);
+            } catch (refreshError) {
+                localStorage.removeItem("access");
+                localStorage.removeItem("refresh");
+                return Promise.reject(refreshError);
+            }
+        }
+
+        return Promise.reject(error);
+    }
+);
+
 export default api;

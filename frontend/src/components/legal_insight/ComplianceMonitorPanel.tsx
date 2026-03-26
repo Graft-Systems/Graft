@@ -62,7 +62,7 @@ export default function ComplianceMonitorPanel({ stateCode }: { stateCode: strin
       <div style={{ fontWeight: 800, color: "#111827" }}>Compliance Monitor (Dashboard)</div>
       <div style={{ color: "#6b7280", fontSize: 12 }}>Progress tracker driven by generated workflow steps.</div>
 
-      <div style={{ border: "1px solid #e5e5e5", borderRadius: 14, padding: 12 }}>
+      <div style={{ border: "1px solid #fecdd3", borderRadius: 14, padding: 12, backgroundColor: "#fffafc" }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
           <div style={{ fontWeight: 700, color: "#111827" }}>Step completion</div>
           <div style={{ fontWeight: 800, color: "#111827" }}>
@@ -70,7 +70,7 @@ export default function ComplianceMonitorPanel({ stateCode }: { stateCode: strin
           </div>
         </div>
 
-        <div style={{ height: 10, borderRadius: 999, backgroundColor: "#f3f4f6", overflow: "hidden" }}>
+        <div style={{ height: 10, borderRadius: 999, backgroundColor: "#ffe4e6", overflow: "hidden" }}>
           <div
             style={{
               height: 10,
@@ -94,7 +94,7 @@ export default function ComplianceMonitorPanel({ stateCode }: { stateCode: strin
                   gap: 10,
                   padding: "10px 12px",
                   borderRadius: 12,
-                  border: "1px solid #e5e5e5",
+                  border: "1px solid #fecdd3",
                   backgroundColor: isDone ? "#fff1f2" : "#fff",
                   opacity: isLocked ? 0.7 : 1,
                   cursor: isLocked ? "not-allowed" : "pointer",

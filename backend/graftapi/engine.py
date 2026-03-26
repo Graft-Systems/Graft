@@ -20,15 +20,39 @@ class AIEngine:
     """
 
     def __init__(self):
-        # Get the AI provider and API key from environment variables
-        self.provider = os.getenv("AI_PROVIDER", "openai").lower() #TODO: fix these default values
-        self.api_key = os.getenv("AI_API_KEY", None)
-        self.model = os.getenv("AI_MODEL", "gpt-3.5-turbo")
+        # Resolve provider/model/key from env with sensible fallbacks.
+        provider_env = os.getenv("AI_PROVIDER")
+        if provider_env:
+            self.provider = provider_env.lower()
+        elif os.getenv("GOOGLE_API_KEY"):
+            self.provider = "google"
+        elif os.getenv("OPENAI_API_KEY"):
+            self.provider = "openai"
+        elif os.getenv("ANTHROPIC_API_KEY"):
+            self.provider = "anthropic"
+        else:
+            self.provider = "google"
+
+        if self.provider == "google":
+            self.api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("AI_API_KEY")
+            default_model = "gemini-1.5-flash"
+        elif self.provider == "anthropic":
+            self.api_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("AI_API_KEY")
+            default_model = "claude-3-5-haiku-latest"
+        else:
+            self.api_key = os.getenv("OPENAI_API_KEY") or os.getenv("AI_API_KEY")
+            default_model = "gpt-4o-mini"
+
+        self.model = os.getenv("AI_MODEL", default_model)
         self.temperature = float(os.getenv("AI_TEMPERATURE", "0.7"))
         self.max_tokens = int(os.getenv("AI_MAX_TOKENS", "900"))
         
         if not self.api_key:
-            raise ValueError("AI_API_KEY environment variable not set. Please configure your AI API key.")
+            raise ValueError(
+                "No API key configured for provider "
+                f"'{self.provider}'. Set AI_API_KEY or a provider key "
+                "(OPENAI_API_KEY / ANTHROPIC_API_KEY / GOOGLE_API_KEY)."
+            )
         
         # Initialize the appropriate chat model
         self.chat_model = self._initialize_chat_model()

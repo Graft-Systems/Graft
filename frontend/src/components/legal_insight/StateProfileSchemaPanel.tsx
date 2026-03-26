@@ -22,6 +22,29 @@ type StateProfile = {
 };
 
 export default function StateProfileSchemaPanel({ stateCode }: { stateCode: string }) {
+  const buildGenericProfile = (code: string): StateProfile => ({
+    state_code: code,
+    primary_source_rule: {
+      label: `Primary American Source of Supply / ${code} licensed channel arrangement`,
+      required: true,
+      primary_source_name: `${code}: Brand should be supplied through the state-licensed importer/wholesaler channel (retain agreement/evidence).`,
+    },
+    physical_office_requirement: {
+      label: `${code} licensed premises or equivalent office evidence`,
+      required: true,
+      office_types_allowed: ["USOffice", "ContractWithLicensedImporter"],
+      flag_if_missing: true,
+    },
+    timelines: {
+      average_processing_days_by_permit: [
+        { permit_name: "TTB Basic Permit (Importer/Wholesaler activity)", min_days: 34, max_days: 75 },
+        { permit_name: "TTB COLA (Wine labels)", min_days: 6, max_days: 15 },
+        { permit_name: `${code} importer/channel licensing review`, min_days: 30, max_days: 120 },
+        { permit_name: `${code} brand/product registration review`, min_days: 10, max_days: 90 },
+      ],
+    },
+  });
+
   const stateProfiles: Record<string, StateProfile> = useMemo(
     () => ({
       CA: {
@@ -144,6 +167,11 @@ export default function StateProfileSchemaPanel({ stateCode }: { stateCode: stri
   );
 
   const [backendStateProfiles, setBackendStateProfiles] = useState<Record<string, StateProfile> | null>(null);
+  const [corpusSummary, setCorpusSummary] = useState<{
+    document_count: number;
+    chunk_count: number;
+    sample_chunks: Array<{ source_name: string; page: number; preview: string; chunk_id: string }>;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -161,11 +189,40 @@ export default function StateProfileSchemaPanel({ stateCode }: { stateCode: stri
     };
   }, []);
 
-  const resolvedProfile =
-    backendStateProfiles?.[stateCode] ?? stateProfiles[stateCode] ?? stateProfiles.NY;
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get(`/legal-insight/state-corpus/${stateCode}/`)
+      .then((res) => {
+        if (!cancelled) setCorpusSummary(res.data ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setCorpusSummary(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [stateCode]);
+
+  const resolvedProfile = backendStateProfiles?.[stateCode] ?? stateProfiles[stateCode] ?? buildGenericProfile(stateCode);
 
   return (
     <div className="space-y-4">
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          backgroundColor: "#fff1f2",
+          border: "1px solid #fecdd3",
+          borderRadius: 10,
+          padding: "8px 10px",
+        }}
+      >
+        <div style={{ color: "#9f1239", fontSize: 12, fontWeight: 800 }}>Active jurisdiction</div>
+        <div style={{ color: "#111827", fontSize: 12, fontWeight: 800 }}>{stateCode}</div>
+      </div>
       <div style={{ color: "#374151", fontSize: 13 }}>
         State compliance profile for the selected market.
       </div>
@@ -288,6 +345,46 @@ export default function StateProfileSchemaPanel({ stateCode }: { stateCode: stri
               </div>
             ))}
           </div>
+        </div>
+
+        <div
+          style={{
+            backgroundColor: "#fff",
+            border: "1px solid #e5e5e5",
+            borderRadius: 12,
+            padding: 12,
+          }}
+        >
+          <div style={{ fontWeight: 800, color: "#111827" }}>Legal PDF Corpus ({stateCode})</div>
+          <div style={{ marginTop: 8, color: "#374151", fontSize: 13 }}>
+            Documents indexed: <strong>{corpusSummary?.document_count ?? 0}</strong> | Chunks indexed:{" "}
+            <strong>{corpusSummary?.chunk_count ?? 0}</strong>
+          </div>
+
+          {corpusSummary?.sample_chunks?.length ? (
+            <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+              {corpusSummary.sample_chunks.slice(0, 3).map((s) => (
+                <div
+                  key={`${s.source_name}_${s.chunk_id}`}
+                  style={{
+                    border: "1px solid #e5e5e5",
+                    borderRadius: 10,
+                    padding: 10,
+                    backgroundColor: "#f7f7f7",
+                  }}
+                >
+                  <div style={{ color: "#111827", fontSize: 12, fontWeight: 800 }}>
+                    {s.source_name} (page {s.page})
+                  </div>
+                  <div style={{ marginTop: 6, color: "#6b7280", fontSize: 12 }}>{s.preview}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ marginTop: 8, color: "#6b7280", fontSize: 12 }}>
+              No parsed chunks yet for this state. Add PDFs and run `manage.py ingest_legal_pdfs`.
+            </div>
+          )}
         </div>
 
         <details>

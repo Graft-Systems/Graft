@@ -17,6 +17,66 @@ type InputMap = {
 
 export default function InputMapPanel({ stateCode }: { stateCode: string }) {
   const storageKey = `legal_insight_input_map_${stateCode}`;
+  const buildGenericInputMap = (code: string): Omit<InputMap, "state_code"> => ({
+    fields: [
+      {
+        key: "exporter_country",
+        label: "Exporter country",
+        type: "string",
+        required: true,
+        source_form: "Multiple forms (federal + state)",
+      },
+      {
+        key: "primary_american_source_registered",
+        label: `Primary American Source registration (${code})`,
+        type: "boolean",
+        required: true,
+        source_form: `${code} importer/channel arrangement`,
+      },
+      {
+        key: "us_physical_office_present",
+        label: "US physical office/premises present",
+        type: "boolean",
+        required: true,
+        source_form: "Federal basic permit prerequisites (TTB)",
+      },
+      {
+        key: "licensed_us_importer_contract_present",
+        label: "Contract with licensed US importer present",
+        type: "boolean",
+        required: true,
+        source_form: "Federal basic permit prerequisites (TTB)",
+      },
+      {
+        key: "average_processing_days_ttb_basic_permit",
+        label: "Average processing days estimate (TTB Basic Permit)",
+        type: "number",
+        required: false,
+        source_form: "Timelines",
+      },
+      {
+        key: "average_processing_days_ttb_cola",
+        label: "Average processing days estimate (TTB COLA for wine labels)",
+        type: "number",
+        required: false,
+        source_form: "Timelines",
+      },
+      {
+        key: `${code.toLowerCase()}_state_channel_permit_present`,
+        label: `${code} state channel/import permit present`,
+        type: "boolean",
+        required: false,
+        source_form: `${code} state permit`,
+      },
+      {
+        key: `${code.toLowerCase()}_state_document_ids`,
+        label: `${code} state compliance document IDs (from vault)`,
+        type: "array",
+        required: false,
+        source_form: "Document Vault",
+      },
+    ],
+  });
 
   const stateInputMaps: Record<string, Omit<InputMap, "state_code">> = useMemo(
     () => ({
@@ -374,7 +434,7 @@ export default function InputMapPanel({ stateCode }: { stateCode: string }) {
 
   const starter: InputMap = useMemo(() => {
     if (backendInputMap && backendInputMap.fields) return backendInputMap;
-    const resolved = stateInputMaps[stateCode] ?? stateInputMaps.NY;
+    const resolved = stateInputMaps[stateCode] ?? buildGenericInputMap(stateCode);
     return { state_code: stateCode, fields: resolved.fields };
   }, [stateCode, stateInputMaps, backendInputMap]);
 
