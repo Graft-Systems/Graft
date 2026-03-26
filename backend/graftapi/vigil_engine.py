@@ -4,12 +4,15 @@ import math
 import pickle
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 from django.conf import settings
 from django.utils import timezone
+
+
+ProgressCallback = Callable[[str, int, str], None]
 
 
 def _coerce_float(value: Any) -> float | None:
@@ -34,20 +37,25 @@ class VigilMLEngine:
     min_samples = 5
     default_alpha = 1.0
 
-    def train_model(self, model_version, samples) -> dict[str, Any]:
+    def train_model(self, model_version, samples, progress_callback: ProgressCallback | None = None) -> dict[str, Any]:
+        progress = progress_callback or (lambda _stage, _pct, _msg: None)
+        progress("load_samples", 10, "Loading training samples")
         prepared = [self._prepare_training_sample(sample) for sample in samples if getattr(sample, "image", None)]
         if len(prepared) < self.min_samples:
             raise ValueError(f"At least {self.min_samples} labeled samples are required to train a model.")
 
+        progress("feature_engineering", 35, "Extracting and vectorizing features")
         feature_dicts = [sample.features for sample in prepared]
         schema = self._build_schema(feature_dicts)
         all_x, feature_names = self._vectorize_features(feature_dicts, schema)
         volume_y = np.array([sample.volume for sample in prepared], dtype=float)
 
+        progress("train_volume_model", 60, "Training volume model")
         split = self._train_validation_split(len(prepared))
         metrics = self._evaluate_volume_model(all_x, volume_y, split)
         volume_model = self._fit_ridge(all_x, volume_y, alpha=self.default_alpha)
 
+        progress("train_weight_model", 75, "Training weight model")
         weight_samples = [sample for sample in prepared if sample.weight is not None]
         weight_model = None
         density_g_per_cm3 = self._estimate_density(weight_samples)
@@ -57,6 +65,7 @@ class VigilMLEngine:
             weight_y = np.array([sample.weight for sample in weight_samples], dtype=float)
             weight_model = self._fit_ridge(weight_x, weight_y, alpha=self.default_alpha)
 
+        progress("package_artifact", 90, "Saving model artifact")
         artifact = {
             "trained_at": timezone.now().isoformat(),
             "schema": schema,
@@ -77,6 +86,8 @@ class VigilMLEngine:
             pickle.dump(artifact, artifact_file)
 
         metrics["top_features"] = self._top_feature_weights(feature_names, volume_model)
+        metrics["training_progress"] = {"stage": "ready", "progress": 100, "message": "Training complete"}
+        progress("ready", 100, "Training complete")
         return {
             "artifact_path": str(artifact_path.relative_to(settings.MEDIA_ROOT)),
             "feature_schema": schema,
@@ -85,9 +96,19 @@ class VigilMLEngine:
             "validation_sample_count": split[1].size,
         }
 
-    def predict(self, model_version, *, image_path: str, block=None, scan_session=None, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    def predict(
+        self,
+        model_version,
+        *,
+        image_path: str,
+        block=None,
+        scan_session=None,
+        payload: dict[str, Any] | None = None,
+        annotation_output_path: str | None = None,
+    ) -> dict[str, Any]:
         artifact = self._load_artifact(model_version)
         payload = payload or {}
+        detections = self._detect_grape_regions(image_path)
         features = self._build_feature_dict(
             image_path=image_path,
             grape_species=payload.get("grape_species"),
@@ -105,6 +126,7 @@ class VigilMLEngine:
             soil_moisture_pct=payload.get("soil_moisture_pct"),
             metadata=payload.get("metadata") or {},
         )
+        features["detected_cluster_count"] = float(len(detections))
         x_matrix, _ = self._vectorize_features([features], artifact["schema"])
         x_vector = x_matrix[0]
         predicted_volume = max(0.0, self._predict_ridge(artifact["volume_model"], x_vector))
@@ -122,12 +144,74 @@ class VigilMLEngine:
             distance_scale=float(artifact.get("distance_scale") or 1.0),
         )
 
+        annotated_image_path = None
+        if annotation_output_path and detections:
+            annotated_image_path = self._save_annotated_image(
+                image_path=image_path,
+                detections=detections,
+                output_path=annotation_output_path,
+            )
+
         return {
             "predicted_volume_cm3": round(predicted_volume, 2),
             "predicted_weight_g": round(predicted_weight, 2),
             "confidence_score": round(confidence, 2),
             "features": self._round_features(features),
+            "detections": detections,
+            "annotated_image_path": annotated_image_path,
         }
+
+    def _detect_grape_regions(self, image_path: str) -> list[dict[str, Any]]:
+        with Image.open(image_path) as image:
+            rgb = image.convert("RGB")
+            pixels = np.asarray(rgb, dtype=np.float32) / 255.0
+
+        red = pixels[:, :, 0]
+        green = pixels[:, :, 1]
+        blue = pixels[:, :, 2]
+        saturation = pixels.max(axis=2) - pixels.min(axis=2)
+        brightness = pixels.mean(axis=2)
+        mask = ((red + blue) * 0.5 > green * 1.05) & (saturation > 0.12) & (brightness < 0.82)
+        points = np.argwhere(mask)
+        if points.size == 0:
+            return []
+
+        y_min, x_min = points.min(axis=0)
+        y_max, x_max = points.max(axis=0)
+        width = int(max(1, x_max - x_min + 1))
+        height = int(max(1, y_max - y_min + 1))
+        area = float(width * height)
+        image_area = float(mask.shape[0] * mask.shape[1])
+        confidence = min(0.99, 0.45 + (area / max(image_area, 1.0)) * 3.0)
+
+        return [{
+            "x": int(x_min),
+            "y": int(y_min),
+            "width": width,
+            "height": height,
+            "area": round(area, 2),
+            "confidence": round(confidence, 3),
+            "label": "grape_cluster",
+        }]
+
+    def _save_annotated_image(self, *, image_path: str, detections: list[dict[str, Any]], output_path: str) -> str | None:
+        output = Path(output_path)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with Image.open(image_path).convert("RGB") as source:
+            draw = ImageDraw.Draw(source)
+            for det in detections:
+                x = int(det["x"])
+                y = int(det["y"])
+                w = int(det["width"])
+                h = int(det["height"])
+                draw.rectangle([(x, y), (x + w, y + h)], outline=(35, 99, 235), width=3)
+                draw.text((x + 4, max(2, y - 14)), f"cluster {int(det.get('confidence', 0) * 100)}%", fill=(35, 99, 235))
+            source.save(output, format="JPEG", quality=92)
+
+        try:
+            return str(output.relative_to(settings.MEDIA_ROOT))
+        except Exception:
+            return None
 
     def _prepare_training_sample(self, sample) -> PreparedSample:
         features = self._build_feature_dict(

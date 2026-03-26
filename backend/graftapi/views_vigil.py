@@ -1,5 +1,6 @@
 import json
 from datetime import timedelta
+from pathlib import Path
 
 from django.db.models import Avg, Count, Sum, Q
 from django.utils import timezone
@@ -40,6 +41,10 @@ from .models.vigil import (
 from .models.wine import Producer
 from .dataset_importers import MAX_DATASET_FILES, DATASET_IMPORTERS, get_dataset_importer
 from .vigil_engine import VigilMLEngine
+from .vigil_ml_service import VigilMLService
+
+
+ml_service = VigilMLService()
 
 
 # ---------------------------------------------------------------------------
@@ -741,6 +746,37 @@ class VigilTrainingSampleView(APIView):
         if request.data.get("scan_session") and not scan_session:
             return Response({"error": "Scan session not found or does not belong to you"}, status=status.HTTP_400_BAD_REQUEST)
 
+        uploaded_images = request.FILES.getlist("images")
+        if uploaded_images:
+            if not request.data.get("target_volume_cm3"):
+                return Response(
+                    {"error": "target_volume_cm3 is required for batch upload."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            created_samples = []
+            for uploaded_image in uploaded_images:
+                data = request.data.copy()
+                data["image"] = uploaded_image
+                data["sample_name"] = data.get("sample_name") or uploaded_image.name
+                data["metadata"] = json.dumps(_parse_json_field(request.data, "metadata", {}))
+                if not data.get("grape_species") and block:
+                    data["grape_species"] = block.grape_species
+
+                serializer = VigilTrainingSampleSerializer(data=data, context={"request": request})
+                if not serializer.is_valid():
+                    return Response(
+                        {
+                            "error": f"Invalid sample in batch at file: {uploaded_image.name}",
+                            "details": serializer.errors,
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                created_samples.append(serializer.save(producer=producer, block=block, scan_session=scan_session))
+
+            response_data = VigilTrainingSampleSerializer(created_samples, many=True, context={"request": request}).data
+            return Response({"created": len(created_samples), "samples": response_data}, status=status.HTTP_201_CREATED)
+
         data = request.data.copy()
         data["metadata"] = json.dumps(_parse_json_field(request.data, "metadata", {}))
         if not data.get("grape_species") and block:
@@ -826,39 +862,44 @@ class VigilModelTrainView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        last_model = VigilMLModelVersion.objects.filter(producer=producer, name=model_name).order_by("-version").first()
-        next_version = (last_model.version + 1) if last_model else 1
-
-        model_version = VigilMLModelVersion.objects.create(
+        model_version = ml_service.create_model_version(
             producer=producer,
             name=model_name,
-            version=next_version,
-            status="training",
             notes=(request.data.get("notes", "") or "").strip(),
             is_active=bool(request.data.get("is_active", True)),
+            algorithm="yolo-like-cv-ensemble-v2",
         )
 
-        engine = VigilMLEngine()
-        try:
-            training_result = engine.train_model(model_version, list(samples.select_related("block", "scan_session", "block__vineyard")))
-            if model_version.is_active:
-                VigilMLModelVersion.objects.filter(producer=producer).exclude(pk=model_version.pk).update(is_active=False)
-            model_version.status = "ready"
-            model_version.artifact_path = training_result["artifact_path"]
-            model_version.feature_schema = training_result["feature_schema"]
-            model_version.metrics = training_result["metrics"]
-            model_version.training_sample_count = training_result["training_sample_count"]
-            model_version.validation_sample_count = training_result["validation_sample_count"]
-            model_version.trained_at = timezone.now()
-            model_version.save()
-        except Exception as exc:
-            model_version.status = "failed"
-            model_version.notes = (model_version.notes + "\n" if model_version.notes else "") + str(exc)
-            model_version.save()
-            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        ml_service.start_training_async(model_version_id=model_version.id, sample_ids=list(sample_ids) if sample_ids else None)
 
         serializer = VigilMLModelVersionSerializer(model_version)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
+
+
+class VigilModelTrainProgressView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, model_id):
+        producer = _get_producer(request)
+        if not producer:
+            return Response({"error": "Producer profile required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        model_version = VigilMLModelVersion.objects.filter(producer=producer, pk=model_id).first()
+        if not model_version:
+            return Response({"error": "Model not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        progress = ml_service.get_training_progress(model_version)
+        return Response(
+            {
+                "model_id": model_version.id,
+                "status": model_version.status,
+                "stage": progress.stage,
+                "progress": progress.progress,
+                "message": progress.message,
+                "trained_at": model_version.trained_at,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class VigilInferenceView(APIView):
@@ -940,12 +981,19 @@ class VigilInferenceView(APIView):
 
         engine = VigilMLEngine()
         try:
+            annotated_output = None
+            if inference.image and inference.image.name:
+                image_path = inference.image.path
+                suffix = Path(image_path).suffix or ".jpg"
+                annotated_output = str(Path(image_path).with_name(f"{Path(image_path).stem}_annotated{suffix}"))
+
             prediction = engine.predict(
                 model_version,
                 image_path=inference.image.path,
                 block=block,
                 scan_session=scan_session,
                 payload=payload,
+                annotation_output_path=annotated_output,
             )
         except Exception as exc:
             inference.delete()
@@ -954,7 +1002,11 @@ class VigilInferenceView(APIView):
         inference.predicted_volume_cm3 = prediction["predicted_volume_cm3"]
         inference.predicted_weight_g = prediction["predicted_weight_g"]
         inference.confidence_score = prediction["confidence_score"]
-        inference.features = prediction["features"]
+        inference.features = {
+            **prediction["features"],
+            "detections": prediction.get("detections", []),
+            "annotated_image_path": prediction.get("annotated_image_path"),
+        }
         inference.save()
 
         serializer = VigilInferenceResultSerializer(inference, context={"request": request})

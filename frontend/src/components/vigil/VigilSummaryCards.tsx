@@ -55,7 +55,7 @@ export default function VigilSummaryCards() {
 
     if (loading) {
         return (
-            <div className="flex justify-center p-12">
+            <div className="flex justify-center p-8">
                 <Loader2 className="animate-spin" style={{ color: "#9f1239" }} />
             </div>
         );
@@ -63,8 +63,8 @@ export default function VigilSummaryCards() {
 
     if (!summary) {
         return (
-            <div className="p-8 text-center rounded-xl" style={{ backgroundColor: "#fafafa", border: "1px solid #ffe4e6" }}>
-                <p style={{ color: "#374151" }}>No VIGIL data yet. Add vineyards and blocks to see your metrics.</p>
+            <div className="p-5 text-center rounded-xl" style={{ backgroundColor: "#fafafa", border: "1px solid #ffe4e6" }}>
+                <p className="text-sm" style={{ color: "#374151" }}>No VIGIL data yet. Add vineyards and blocks to see your metrics.</p>
             </div>
         );
     }
@@ -76,19 +76,19 @@ export default function VigilSummaryCards() {
             label: "Total Vineyards",
             value: String(summary.total_vineyards),
             accent: "#9f1239",
-            icon: <Grape size={20} />,
+            icon: <Grape size={16} />,
         },
         {
             label: "Total Blocks",
             value: String(summary.total_blocks),
             accent: "#9f1239",
-            icon: <LayoutGrid size={20} />,
+            icon: <LayoutGrid size={16} />,
         },
         {
             label: "Total Scans",
             value: String(summary.total_scan_sessions),
             accent: "#9f1239",
-            icon: <ScanLine size={20} />,
+            icon: <ScanLine size={16} />,
         },
         {
             label: "Avg. Yield Estimate",
@@ -96,67 +96,67 @@ export default function VigilSummaryCards() {
                 ? `${summary.avg_yield_estimate_base_tons_per_acre.toFixed(2)} t/ac`
                 : "\u2014",
             accent: "#9f1239",
-            icon: <BarChart3 size={20} />,
+            icon: <BarChart3 size={16} />,
         },
         {
             label: "Training Samples",
             value: String(summary.training_sample_count),
             accent: "#0f766e",
-            icon: <Grape size={20} />,
+            icon: <Grape size={16} />,
         },
         {
             label: "Ready Models",
             value: String(summary.trained_model_count),
             accent: "#1d4ed8",
-            icon: <BarChart3 size={20} />,
+            icon: <BarChart3 size={16} />,
         },
         {
             label: "Predictions Saved",
             value: String(summary.prediction_count),
             accent: "#7c3aed",
-            icon: <ScanLine size={20} />,
+            icon: <ScanLine size={16} />,
         },
         {
             label: "Pest/Disease Alerts",
             value: String(alertCount),
             accent: alertCount > 0 ? "#d97706" : "#9f1239",
-            icon: <Bug size={20} />,
+            icon: <Bug size={16} />,
         },
         {
             label: "10-Day Rain Forecast",
             value: `${summary.weather_forecast_summary.next_10_days_precipitation_in} in`,
             accent: "#9f1239",
-            icon: <CloudRain size={20} />,
+            icon: <CloudRain size={16} />,
         },
     ];
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4 xl:gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 xl:gap-4">
             {cards.map((card, i) => (
                 <div
                     key={i}
-                    className="p-4 xl:p-5 rounded-xl shadow-sm"
+                    className="p-3 xl:p-4 rounded-xl shadow-sm"
                     style={{
                         backgroundColor: "#ffffff",
                         border: "1px solid #f5f5f5",
-                        borderTop: `4px solid ${card.accent}`,
+                        borderTop: `3px solid ${card.accent}`,
                         opacity: mounted ? 1 : 0,
                         transform: mounted ? "translateY(0)" : "translateY(8px)",
                         transition: `opacity 0.4s ease ${i * 0.08}s, transform 0.4s ease ${i * 0.08}s`,
                     }}
                 >
-                    <div className="flex items-center gap-2 mb-3">
+                    <div className="flex items-center gap-2 mb-2">
                         <div
-                            className="p-2 rounded-full shrink-0"
+                            className="p-1.5 rounded-full shrink-0"
                             style={{ backgroundColor: "#fff1f2", color: card.accent }}
                         >
                             {card.icon}
                         </div>
-                        <p className="text-xs xl:text-sm font-medium uppercase tracking-wider leading-snug" style={{ color: "#374151" }}>
+                        <p className="text-[11px] xl:text-xs font-medium uppercase tracking-[0.08em] leading-snug" style={{ color: "#374151" }}>
                             {card.label}
                         </p>
                     </div>
-                    <h3 className="text-2xl xl:text-3xl font-bold" style={{ color: card.accent }}>
+                    <h3 className="text-xl xl:text-2xl font-bold" style={{ color: card.accent }}>
                         {card.value}
                     </h3>
                 </div>

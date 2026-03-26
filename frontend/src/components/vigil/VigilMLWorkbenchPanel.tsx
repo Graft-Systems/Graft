@@ -14,6 +14,7 @@ import {
     X,
 } from "lucide-react";
 import api from "@/app/lib/api";
+import LatestPredictionPanel from "@/components/vigil/LatestPredictionPanel";
 
 interface TrainingSample {
     id: number;
@@ -44,6 +45,14 @@ interface ModelVersion {
     trained_at: string | null;
 }
 
+interface TrainingProgress {
+    model_id: number;
+    status: string;
+    stage: string;
+    progress: number;
+    message: string;
+}
+
 interface PredictionResult {
     id: number;
     model_version: number | null;
@@ -55,12 +64,18 @@ interface PredictionResult {
     predicted_weight_g: number | null;
     confidence_score: number;
     created_at: string;
+    annotated_image_url?: string | null;
+    features?: {
+        detections?: Array<{ x: number; y: number; width: number; height: number; confidence: number }>;
+        [key: string]: unknown;
+    };
 }
 
 interface Props {
     blockId: number | null;
     scanSessionId: number | null;
     refreshToken?: number;
+    displayMode?: "full" | "inference" | "training";
 }
 
 const emptyTrainingForm = {
@@ -89,7 +104,7 @@ const emptyPredictionForm = {
     metadata: "",
 };
 
-export default function VigilMLWorkbenchPanel({ blockId, scanSessionId, refreshToken = 0 }: Props) {
+export default function VigilMLWorkbenchPanel({ blockId, scanSessionId, refreshToken = 0, displayMode = "full" }: Props) {
     const [samples, setSamples] = useState<TrainingSample[]>([]);
     const [models, setModels] = useState<ModelVersion[]>([]);
     const [predictions, setPredictions] = useState<PredictionResult[]>([]);
@@ -97,13 +112,16 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId, refreshT
     const [uploading, setUploading] = useState(false);
     const [trainingModel, setTrainingModel] = useState(false);
     const [predicting, setPredicting] = useState(false);
-    const [trainingFile, setTrainingFile] = useState<File | null>(null);
-    const [predictionFile, setPredictionFile] = useState<File | null>(null);
+    const [trainingFiles, setTrainingFiles] = useState<File[]>([]);
+    const [predictionFiles, setPredictionFiles] = useState<File[]>([]);
+    const [predictionMode, setPredictionMode] = useState<"single" | "multiple">("single");
+    const [showAdvancedPredictFields, setShowAdvancedPredictFields] = useState(false);
     const [trainingForm, setTrainingForm] = useState({ ...emptyTrainingForm });
     const [predictionForm, setPredictionForm] = useState({ ...emptyPredictionForm });
     const [modelName, setModelName] = useState("Cluster Volume Model");
     const [modelNotes, setModelNotes] = useState("");
     const [selectedModelId, setSelectedModelId] = useState<number | "">("");
+    const [trainingProgress, setTrainingProgress] = useState<TrainingProgress | null>(null);
     const [latestPrediction, setLatestPrediction] = useState<PredictionResult | null>(null);
     const [expandedPredictionImageUrl, setExpandedPredictionImageUrl] = useState<string | null>(null);
     const [expandedPredictionLabel, setExpandedPredictionLabel] = useState<string>("Prediction image");
@@ -130,12 +148,45 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId, refreshT
             const readyModel = modelResponse.data.find((model: ModelVersion) => model.is_active && model.status === "ready")
                 || modelResponse.data.find((model: ModelVersion) => model.status === "ready");
             setSelectedModelId((current) => current || readyModel?.id || "");
+
+            const currentlyTraining = modelResponse.data.find((model: ModelVersion) => model.status === "training");
+            if (currentlyTraining) {
+                const progressData = (currentlyTraining.metrics as { training_progress?: { stage?: string; progress?: number; message?: string } })?.training_progress;
+                setTrainingProgress({
+                    model_id: currentlyTraining.id,
+                    status: currentlyTraining.status,
+                    stage: progressData?.stage || "training",
+                    progress: progressData?.progress ?? 0,
+                    message: progressData?.message || "Training in progress",
+                });
+            }
         } catch (error) {
             console.error("Error loading VIGIL ML data:", error);
         } finally {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (!trainingProgress || ["ready", "failed", "archived"].includes(trainingProgress.status)) {
+            return;
+        }
+
+        const interval = setInterval(async () => {
+            try {
+                const response = await api.get(`/vigil/ml/models/${trainingProgress.model_id}/progress/`);
+                const nextProgress = response.data as TrainingProgress;
+                setTrainingProgress(nextProgress);
+                if (["ready", "failed", "archived"].includes(nextProgress.status)) {
+                    await fetchWorkbenchData();
+                }
+            } catch (error) {
+                console.error("Error polling training progress:", error);
+            }
+        }, 2000);
+
+        return () => clearInterval(interval);
+    }, [trainingProgress?.model_id, trainingProgress?.status]);
 
     const parseMetadata = (raw: string) => {
         if (!raw.trim()) return "{}";
@@ -148,15 +199,14 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId, refreshT
 
     const handleUploadTrainingSample = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!trainingFile) {
-            alert("Select an image before uploading a training sample.");
+        if (trainingFiles.length === 0) {
+            alert("Select one or more images before uploading training samples.");
             return;
         }
 
         setUploading(true);
         try {
             const formData = new FormData();
-            formData.append("image", trainingFile);
             formData.append("sample_name", trainingForm.sample_name);
             formData.append("grape_species", trainingForm.grape_species);
             formData.append("target_volume_cm3", trainingForm.target_volume_cm3);
@@ -171,10 +221,20 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId, refreshT
             if (blockId) formData.append("block", String(blockId));
             if (scanSessionId) formData.append("scan_session", String(scanSessionId));
 
+            if (trainingFiles.length === 1) {
+                formData.append("image", trainingFiles[0]);
+            } else {
+                trainingFiles.forEach((file) => formData.append("images", file));
+            }
+
             const response = await api.post("/vigil/ml/training-samples/", formData);
-            setSamples((current) => [response.data, ...current]);
+            if (response.data?.samples && Array.isArray(response.data.samples)) {
+                setSamples((current) => [...response.data.samples, ...current]);
+            } else {
+                setSamples((current) => [response.data, ...current]);
+            }
             setTrainingForm({ ...emptyTrainingForm });
-            setTrainingFile(null);
+            setTrainingFiles([]);
         } catch (error) {
             console.error("Error uploading training sample:", error);
             alert("Unable to upload training sample. Check the console for details.");
@@ -203,12 +263,20 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId, refreshT
                 block_id: blockId,
                 is_active: true,
             });
-            setModels((current) => [response.data, ...current.filter((model) => model.id !== response.data.id)]);
-            setSelectedModelId(response.data.id);
+            const createdModel = response.data as ModelVersion;
+            setModels((current) => [createdModel, ...current.filter((model) => model.id !== createdModel.id)]);
+            setSelectedModelId(createdModel.id);
             setModelNotes("");
+            setTrainingProgress({
+                model_id: createdModel.id,
+                status: createdModel.status,
+                stage: "queued",
+                progress: 0,
+                message: "Queued for training",
+            });
         } catch (error) {
             console.error("Error training model:", error);
-            alert("Model training failed. Make sure you have at least five labeled samples.");
+            alert("Model training failed. Make sure you have enough labeled samples.");
         } finally {
             setTrainingModel(false);
         }
@@ -216,33 +284,46 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId, refreshT
 
     const handlePredict = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!predictionFile) {
-            alert("Select an image to test against the trained model.");
+        if (predictionFiles.length === 0) {
+            alert("Select one or more images to test against the trained model.");
             return;
         }
 
         setPredicting(true);
         try {
-            const formData = new FormData();
-            formData.append("image", predictionFile);
-            formData.append("sample_name", predictionForm.sample_name);
-            formData.append("grape_species", predictionForm.grape_species);
-            if (predictionForm.occlusion_percentage) formData.append("occlusion_percentage", predictionForm.occlusion_percentage);
-            if (predictionForm.hanging_height_cm) formData.append("hanging_height_cm", predictionForm.hanging_height_cm);
-            if (predictionForm.berry_count) formData.append("berry_count", predictionForm.berry_count);
-            if (predictionForm.weather_temp_f) formData.append("weather_temp_f", predictionForm.weather_temp_f);
-            if (predictionForm.recent_rain_in) formData.append("recent_rain_in", predictionForm.recent_rain_in);
-            if (predictionForm.soil_moisture_pct) formData.append("soil_moisture_pct", predictionForm.soil_moisture_pct);
-            formData.append("metadata", parseMetadata(predictionForm.metadata));
-            if (selectedModelId) formData.append("model_version", String(selectedModelId));
-            if (blockId) formData.append("block", String(blockId));
-            if (scanSessionId) formData.append("scan_session", String(scanSessionId));
+            const results: PredictionResult[] = [];
+            const baseLabel = predictionForm.sample_name.trim();
 
-            const response = await api.post("/vigil/ml/predictions/", formData);
-            setLatestPrediction(response.data);
-            setPredictions((current) => [response.data, ...current]);
+            for (let index = 0; index < predictionFiles.length; index += 1) {
+                const file = predictionFiles[index];
+                const inferredLabel = baseLabel
+                    ? (predictionMode === "multiple" ? `${baseLabel} ${index + 1}` : baseLabel)
+                    : file.name;
+
+                const formData = new FormData();
+                formData.append("image", file);
+                formData.append("sample_name", inferredLabel);
+                formData.append("grape_species", predictionForm.grape_species);
+                if (predictionForm.occlusion_percentage) formData.append("occlusion_percentage", predictionForm.occlusion_percentage);
+                if (predictionForm.hanging_height_cm) formData.append("hanging_height_cm", predictionForm.hanging_height_cm);
+                if (predictionForm.berry_count) formData.append("berry_count", predictionForm.berry_count);
+                if (predictionForm.weather_temp_f) formData.append("weather_temp_f", predictionForm.weather_temp_f);
+                if (predictionForm.recent_rain_in) formData.append("recent_rain_in", predictionForm.recent_rain_in);
+                if (predictionForm.soil_moisture_pct) formData.append("soil_moisture_pct", predictionForm.soil_moisture_pct);
+                formData.append("metadata", parseMetadata(predictionForm.metadata));
+                if (selectedModelId) formData.append("model_version", String(selectedModelId));
+                if (blockId) formData.append("block", String(blockId));
+                if (scanSessionId) formData.append("scan_session", String(scanSessionId));
+
+                const response = await api.post("/vigil/ml/predictions/", formData);
+                results.push(response.data as PredictionResult);
+            }
+
+            const newest = results[results.length - 1] || null;
+            setLatestPrediction(newest);
+            setPredictions((current) => [...results.reverse(), ...current]);
             setPredictionForm({ ...emptyPredictionForm });
-            setPredictionFile(null);
+            setPredictionFiles([]);
         } catch (error) {
             console.error("Error creating prediction:", error);
             alert("Prediction failed. Check the console for details.");
@@ -252,6 +333,8 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId, refreshT
     };
 
     const readyModels = models.filter((model) => model.status === "ready");
+    const showTrainingPanels = displayMode === "full" || displayMode === "training";
+    const showInferencePanels = displayMode === "full" || displayMode === "inference";
     const formatNumber = (value: number | string | null | undefined, digits = 2) => {
         if (value === null || value === undefined || value === "") return "--";
         const numericValue = Number(value);
@@ -268,23 +351,25 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId, refreshT
 
     return (
         <div className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                <div className="rounded-xl p-4" style={{ backgroundColor: "#fafafa", border: "1px solid #e5e5e5" }}>
-                    <p className="text-xs uppercase tracking-[0.18em] mb-2" style={{ color: "#6b7280" }}>Training Samples</p>
-                    <p className="text-3xl font-bold" style={{ color: "#9f1239" }}>{samples.length}</p>
-                </div>
-                <div className="rounded-xl p-4" style={{ backgroundColor: "#fafafa", border: "1px solid #e5e5e5" }}>
-                    <p className="text-xs uppercase tracking-[0.18em] mb-2" style={{ color: "#6b7280" }}>Ready Models</p>
-                    <p className="text-3xl font-bold" style={{ color: "#0f766e" }}>{readyModels.length}</p>
-                </div>
-                <div className="rounded-xl p-4" style={{ backgroundColor: "#fafafa", border: "1px solid #e5e5e5" }}>
-                    <p className="text-xs uppercase tracking-[0.18em] mb-2" style={{ color: "#6b7280" }}>Saved Predictions</p>
-                    <p className="text-3xl font-bold" style={{ color: "#1d4ed8" }}>{predictions.length}</p>
-                </div>
-            </div>
+            {showTrainingPanels ? (
+                <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        <div className="rounded-xl p-4" style={{ backgroundColor: "#fafafa", border: "1px solid #e5e5e5" }}>
+                            <p className="text-xs uppercase tracking-[0.18em] mb-2" style={{ color: "#6b7280" }}>Training Samples</p>
+                            <p className="text-3xl font-bold" style={{ color: "#9f1239" }}>{samples.length}</p>
+                        </div>
+                        <div className="rounded-xl p-4" style={{ backgroundColor: "#fafafa", border: "1px solid #e5e5e5" }}>
+                            <p className="text-xs uppercase tracking-[0.18em] mb-2" style={{ color: "#6b7280" }}>Ready Models</p>
+                            <p className="text-3xl font-bold" style={{ color: "#0f766e" }}>{readyModels.length}</p>
+                        </div>
+                        <div className="rounded-xl p-4" style={{ backgroundColor: "#fafafa", border: "1px solid #e5e5e5" }}>
+                            <p className="text-xs uppercase tracking-[0.18em] mb-2" style={{ color: "#6b7280" }}>Saved Predictions</p>
+                            <p className="text-3xl font-bold" style={{ color: "#1d4ed8" }}>{predictions.length}</p>
+                        </div>
+                    </div>
 
-            <div className="grid grid-cols-1 2xl:grid-cols-2 gap-6">
-                <form onSubmit={handleUploadTrainingSample} className="rounded-2xl p-4 xl:p-5 space-y-4" style={{ backgroundColor: "#fffaf5", border: "1px solid #fed7aa" }}>
+                    <div className="grid grid-cols-1 2xl:grid-cols-2 gap-6">
+                        <form onSubmit={handleUploadTrainingSample} className="rounded-2xl p-4 xl:p-5 space-y-4" style={{ backgroundColor: "#fffaf5", border: "1px solid #fed7aa" }}>
                     <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg" style={{ backgroundColor: "#ffedd5", color: "#9a3412" }}>
                             <Upload size={18} />
@@ -386,11 +471,21 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId, refreshT
                         <div className="flex items-center gap-3">
                             <ImageIcon size={18} style={{ color: "#9a3412" }} />
                             <div>
-                                <p className="font-medium" style={{ color: "#262626" }}>{trainingFile ? trainingFile.name : "Choose a labeled cluster image"}</p>
-                                <p className="text-xs" style={{ color: "#6b7280" }}>PNG or JPG with a measured cluster volume target.</p>
+                                <p className="font-medium" style={{ color: "#262626" }}>
+                                    {trainingFiles.length === 0
+                                        ? "Choose one or more labeled cluster images"
+                                        : `${trainingFiles.length} image${trainingFiles.length === 1 ? "" : "s"} selected`}
+                                </p>
+                                <p className="text-xs" style={{ color: "#6b7280" }}>PNG or JPG with measured cluster volume targets.</p>
                             </div>
                         </div>
-                        <input type="file" accept="image/*" className="hidden" onChange={(e) => setTrainingFile(e.target.files?.[0] || null)} />
+                        <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => setTrainingFiles(Array.from(e.target.files || []))}
+                        />
                     </label>
 
                     <button
@@ -402,9 +497,9 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId, refreshT
                         {uploading ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
                         Upload Training Sample
                     </button>
-                </form>
+                    </form>
 
-                <div className="rounded-2xl p-4 xl:p-5 space-y-4" style={{ backgroundColor: "#f7fee7", border: "1px solid #bef264" }}>
+                    <div className="rounded-2xl p-4 xl:p-5 space-y-4" style={{ backgroundColor: "#f7fee7", border: "1px solid #bef264" }}>
                     <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg" style={{ backgroundColor: "#ecfccb", color: "#3f6212" }}>
                             <BrainCircuit size={18} />
@@ -438,6 +533,22 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId, refreshT
                         {trainingModel ? <Loader2 size={18} className="animate-spin" /> : <FlaskConical size={18} />}
                         Train Active Model
                     </button>
+
+                    {trainingProgress ? (
+                        <div className="rounded-xl p-3" style={{ backgroundColor: "#ffffff", border: "1px solid #d9f99d" }}>
+                            <div className="flex items-center justify-between text-xs mb-2" style={{ color: "#3f6212" }}>
+                                <span>{trainingProgress.message}</span>
+                                <span>{trainingProgress.progress}%</span>
+                            </div>
+                            <div className="h-2 rounded-full" style={{ backgroundColor: "#ecfccb" }}>
+                                <div
+                                    className="h-2 rounded-full transition-all"
+                                    style={{ width: `${Math.max(0, Math.min(trainingProgress.progress, 100))}%`, backgroundColor: "#65a30d" }}
+                                />
+                            </div>
+                            <p className="text-xs mt-2" style={{ color: "#4b5563" }}>Stage: {trainingProgress.stage}</p>
+                        </div>
+                    ) : null}
 
                     <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
                         {models.length === 0 ? (
@@ -485,10 +596,13 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId, refreshT
                             </div>
                         ))}
                     </div>
-                </div>
-            </div>
+                        </div>
+                    </div>
+                </>
+            ) : null}
 
-            <div className="grid grid-cols-1 2xl:grid-cols-[1.2fr_0.8fr] gap-6">
+            {showInferencePanels ? (
+                <div className="space-y-4">
                 <form onSubmit={handlePredict} className="rounded-2xl p-4 xl:p-5 space-y-4" style={{ backgroundColor: "#eff6ff", border: "1px solid #bfdbfe" }}>
                     <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg" style={{ backgroundColor: "#dbeafe", color: "#1d4ed8" }}>
@@ -500,7 +614,74 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId, refreshT
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setPredictionMode("single");
+                                if (predictionFiles.length > 1) {
+                                    setPredictionFiles(predictionFiles.slice(0, 1));
+                                }
+                            }}
+                            className="px-3 py-1.5 rounded-lg text-sm font-semibold transition"
+                            style={{
+                                backgroundColor: predictionMode === "single" ? "#1d4ed8" : "#ffffff",
+                                color: predictionMode === "single" ? "#ffffff" : "#1d4ed8",
+                                border: "1px solid #93c5fd",
+                            }}
+                        >
+                            One Image
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setPredictionMode("multiple")}
+                            className="px-3 py-1.5 rounded-lg text-sm font-semibold transition"
+                            style={{
+                                backgroundColor: predictionMode === "multiple" ? "#1d4ed8" : "#ffffff",
+                                color: predictionMode === "multiple" ? "#ffffff" : "#1d4ed8",
+                                border: "1px solid #93c5fd",
+                            }}
+                        >
+                            Multiple Images
+                        </button>
+                    </div>
+
+                    <label
+                        className="block rounded-xl border border-dashed p-6 xl:p-8 cursor-pointer"
+                        style={{ borderColor: "#93c5fd", backgroundColor: "#ffffff", minHeight: "220px" }}
+                    >
+                        <div className="h-full flex flex-col items-center justify-center text-center gap-3">
+                            <Sparkles size={22} style={{ color: "#1d4ed8" }} />
+                            <div>
+                                <p className="font-semibold" style={{ color: "#262626" }}>
+                                    {predictionFiles.length > 0
+                                        ? `${predictionFiles.length} image${predictionFiles.length === 1 ? "" : "s"} selected`
+                                        : `Upload ${predictionMode === "single" ? "an image" : "one or more images"}`}
+                                </p>
+                                <p className="text-xs mt-1" style={{ color: "#6b7280" }}>
+                                    Drag and drop or click to browse. Supported formats: JPG, PNG.
+                                </p>
+                                {predictionFiles.length > 0 ? (
+                                    <p className="text-xs mt-2" style={{ color: "#1d4ed8" }}>
+                                        {predictionFiles.slice(0, 2).map((file) => file.name).join(" | ")}
+                                        {predictionFiles.length > 2 ? ` | +${predictionFiles.length - 2} more` : ""}
+                                    </p>
+                                ) : null}
+                            </div>
+                        </div>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            multiple={predictionMode === "multiple"}
+                            className="hidden"
+                            onChange={(e) => {
+                                const files = Array.from(e.target.files || []);
+                                setPredictionFiles(predictionMode === "single" ? files.slice(0, 1) : files);
+                            }}
+                        />
+                    </label>
+
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
                         <select
                             className="p-2 border rounded-md text-gray-900"
                             value={selectedModelId}
@@ -523,6 +704,20 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId, refreshT
                             value={predictionForm.grape_species}
                             onChange={(e) => setPredictionForm({ ...predictionForm, grape_species: e.target.value })}
                         />
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={() => setShowAdvancedPredictFields((value) => !value)}
+                        className="text-sm font-semibold"
+                        style={{ color: "#1d4ed8" }}
+                    >
+                        {showAdvancedPredictFields ? "Hide Advanced Options" : "Show Advanced Options"}
+                    </button>
+
+                    {showAdvancedPredictFields ? (
+                        <>
+                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                         <input
                             className="p-2 border rounded-md text-gray-900 placeholder:text-gray-500"
                             type="number"
@@ -570,26 +765,17 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId, refreshT
                             value={predictionForm.soil_moisture_pct}
                             onChange={(e) => setPredictionForm({ ...predictionForm, soil_moisture_pct: e.target.value })}
                         />
-                    </div>
-
-                    <textarea
-                        className="w-full p-2 border rounded-md text-gray-900 placeholder:text-gray-500"
-                        rows={3}
-                        placeholder='Optional metadata JSON for inference, e.g. {"camera_angle": "left-canopy"}'
-                        value={predictionForm.metadata}
-                        onChange={(e) => setPredictionForm({ ...predictionForm, metadata: e.target.value })}
-                    />
-
-                    <label className="block rounded-xl border border-dashed p-4 cursor-pointer" style={{ borderColor: "#93c5fd", backgroundColor: "#ffffff" }}>
-                        <div className="flex items-center gap-3">
-                            <Sparkles size={18} style={{ color: "#1d4ed8" }} />
-                            <div>
-                                <p className="font-medium" style={{ color: "#262626" }}>{predictionFile ? predictionFile.name : "Choose a test image"}</p>
-                                <p className="text-xs" style={{ color: "#6b7280" }}>The engine will extract image features and blend them with the supplied vineyard data.</p>
                             </div>
-                        </div>
-                        <input type="file" accept="image/*" className="hidden" onChange={(e) => setPredictionFile(e.target.files?.[0] || null)} />
-                    </label>
+
+                            <textarea
+                                className="w-full p-2 border rounded-md text-gray-900 placeholder:text-gray-500"
+                                rows={3}
+                                placeholder='Optional metadata JSON for inference, e.g. {"camera_angle": "left-canopy"}'
+                                value={predictionForm.metadata}
+                                onChange={(e) => setPredictionForm({ ...predictionForm, metadata: e.target.value })}
+                            />
+                        </>
+                    ) : null}
 
                     <button
                         type="submit"
@@ -598,91 +784,55 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId, refreshT
                         style={{ backgroundColor: "#1d4ed8", color: "#ffffff", opacity: predicting ? 0.7 : 1 }}
                     >
                         {predicting ? <Loader2 size={18} className="animate-spin" /> : <Play size={18} />}
-                        Run Volume Prediction
+                        {predictionMode === "multiple" ? "Run Batch Predictions" : "Run Volume Prediction"}
                     </button>
                 </form>
 
                 <div className="space-y-4">
-                    <div className="rounded-2xl p-4 xl:p-5" style={{ backgroundColor: "#f8fafc", border: "1px solid #e2e8f0" }}>
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 rounded-lg" style={{ backgroundColor: "#e0e7ff", color: "#4338ca" }}>
-                                <Sparkles size={18} />
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-bold" style={{ color: "#262626" }}>Latest Prediction</h3>
-                                <p className="text-sm" style={{ color: "#6b7280" }}>Saved predictions stay available for later QA and comparison.</p>
-                            </div>
-                        </div>
-
-                        {latestPrediction ? (
-                            <div className="space-y-3">
-                                {latestPrediction.image_url ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setExpandedPredictionImageUrl(latestPrediction.image_url);
-                                            setExpandedPredictionLabel(latestPrediction.sample_name || "Prediction");
-                                        }}
-                                        className="block w-full text-left"
-                                    >
-                                        <img src={latestPrediction.image_url} alt={latestPrediction.sample_name || "Prediction"} className="w-full h-28 object-cover rounded-xl border" />
-                                        <p className="text-xs mt-2" style={{ color: "#6b7280" }}>Click the image to expand it.</p>
-                                    </button>
-                                ) : null}
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="rounded-xl p-3" style={{ backgroundColor: "#ffffff", border: "1px solid #e5e7eb" }}>
-                                        <p className="text-xs uppercase tracking-[0.16em]" style={{ color: "#6b7280" }}>Volume</p>
-                                        <p className="text-2xl font-bold" style={{ color: "#1d4ed8" }}>{formatNumber(latestPrediction.predicted_volume_cm3)} cm³</p>
-                                    </div>
-                                    <div className="rounded-xl p-3" style={{ backgroundColor: "#ffffff", border: "1px solid #e5e7eb" }}>
-                                        <p className="text-xs uppercase tracking-[0.16em]" style={{ color: "#6b7280" }}>Weight</p>
-                                        <p className="text-2xl font-bold" style={{ color: "#0f766e" }}>{formatNumber(latestPrediction.predicted_weight_g)} g</p>
-                                    </div>
-                                </div>
-                                <div className="rounded-xl p-3" style={{ backgroundColor: "#ffffff", border: "1px solid #e5e7eb" }}>
-                                    <p className="text-xs uppercase tracking-[0.16em]" style={{ color: "#6b7280" }}>Confidence</p>
-                                    <p className="text-xl font-bold" style={{ color: "#7c3aed" }}>{Math.round(Number(latestPrediction.confidence_score) * 100)}%</p>
-                                    <p className="text-sm mt-1" style={{ color: "#4b5563" }}>{latestPrediction.model_name || "Active model"}</p>
-                                </div>
-                            </div>
-                        ) : (
-                            <p className="text-sm" style={{ color: "#4b5563" }}>Run a prediction to see the estimated cluster volume and weight here.</p>
-                        )}
-                    </div>
-
-                    <div className="rounded-2xl p-4 xl:p-5" style={{ backgroundColor: "#ffffff", border: "1px solid #e5e7eb" }}>
-                        <h3 className="text-base font-bold mb-4" style={{ color: "#262626" }}>Recent Samples</h3>
-                        <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
-                            {samples.length === 0 ? (
-                                <p className="text-sm" style={{ color: "#6b7280" }}>No labeled samples uploaded yet.</p>
-                            ) : samples.slice(0, 6).map((sample) => (
-                                <div key={sample.id} className="flex items-center gap-3 rounded-xl p-3" style={{ backgroundColor: "#fafafa", border: "1px solid #f3f4f6" }}>
-                                    {sample.image_url ? (
-                                        <img src={sample.image_url} alt={sample.sample_name || "Training sample"} className="w-14 h-14 rounded-lg object-cover border" />
-                                    ) : (
-                                        <div className="w-14 h-14 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#f3f4f6" }}>
-                                            <ImageIcon size={18} style={{ color: "#9ca3af" }} />
+                    <LatestPredictionPanel
+                        latestPrediction={latestPrediction}
+                        formatNumber={formatNumber}
+                        onExpandImage={(url, label) => {
+                            setExpandedPredictionImageUrl(url);
+                            setExpandedPredictionLabel(label);
+                        }}
+                    />
+                    {displayMode === "full" ? (
+                        <div className="rounded-2xl p-4 xl:p-5" style={{ backgroundColor: "#ffffff", border: "1px solid #e5e7eb" }}>
+                            <h3 className="text-base font-bold mb-4" style={{ color: "#262626" }}>Recent Samples</h3>
+                            <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
+                                {samples.length === 0 ? (
+                                    <p className="text-sm" style={{ color: "#6b7280" }}>No labeled samples uploaded yet.</p>
+                                ) : samples.slice(0, 6).map((sample) => (
+                                    <div key={sample.id} className="flex items-center gap-3 rounded-xl p-3" style={{ backgroundColor: "#fafafa", border: "1px solid #f3f4f6" }}>
+                                        {sample.image_url ? (
+                                            <img src={sample.image_url} alt={sample.sample_name || "Training sample"} className="w-14 h-14 rounded-lg object-cover border" />
+                                        ) : (
+                                            <div className="w-14 h-14 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#f3f4f6" }}>
+                                                <ImageIcon size={18} style={{ color: "#9ca3af" }} />
+                                            </div>
+                                        )}
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-medium truncate" style={{ color: "#111827" }}>{sample.sample_name || "Untitled sample"}</p>
+                                            <p className="text-sm truncate" style={{ color: "#6b7280" }}>{sample.grape_species || sample.block_name || "No species"}</p>
+                                            <p className="text-sm" style={{ color: "#9a3412" }}>Target {formatNumber(sample.target_volume_cm3)} cm³</p>
                                         </div>
-                                    )}
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-medium truncate" style={{ color: "#111827" }}>{sample.sample_name || "Untitled sample"}</p>
-                                        <p className="text-sm truncate" style={{ color: "#6b7280" }}>{sample.grape_species || sample.block_name || "No species"}</p>
-                                        <p className="text-sm" style={{ color: "#9a3412" }}>Target {formatNumber(sample.target_volume_cm3)} cm³</p>
+                                        <button
+                                            onClick={() => handleDeleteSample(sample.id)}
+                                            className="p-2 rounded-lg transition"
+                                            style={{ color: "#991b1b" }}
+                                            title="Delete sample"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
                                     </div>
-                                    <button
-                                        onClick={() => handleDeleteSample(sample.id)}
-                                        className="p-2 rounded-lg transition"
-                                        style={{ color: "#991b1b" }}
-                                        title="Delete sample"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
-                    </div>
+                    ) : null}
                 </div>
-            </div>
+                </div>
+            ) : null}
 
             {expandedPredictionImageUrl ? (
                 <div

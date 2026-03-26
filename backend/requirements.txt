@@ -18,3 +18,5 @@ langchain-google-genai
 numpy
 Pillow
 pypdf
+scikit-learn==1.5.2
+opencv-python-headless==4.10.0.84

@@ -3,9 +3,21 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Menu, LayoutDashboard, Eye, Scale } from "lucide-react";
+import { Menu, LayoutDashboard, Eye, Scale, Cpu } from "lucide-react";
 
-const NAV_ITEMS = [
+interface NavItem {
+    label: string;
+    subtitle?: string;
+    icon: typeof LayoutDashboard;
+    href: string;
+    children?: Array<{
+        label: string;
+        href: string;
+        icon?: typeof LayoutDashboard;
+    }>;
+}
+
+const NAV_ITEMS: NavItem[] = [
     {
         label: "Producer Overview",
         icon: LayoutDashboard,
@@ -16,6 +28,13 @@ const NAV_ITEMS = [
         subtitle: "Vine Intelligence for Grape Identification & Load-estimation",
         icon: Eye,
         href: "/ProducerDashboard/vigil",
+        children: [
+            {
+                label: "Workbench",
+                href: "/ProducerDashboard/vigil/ml",
+                icon: Cpu,
+            },
+        ],
     },
     {
         label: "Legal Insight Provider",
@@ -45,19 +64,38 @@ export default function Sidebar() {
 
             <div className="flex-1 p-2 space-y-1">
                 {NAV_ITEMS.map((item) => (
-                    <SidebarItem
-                        key={item.href}
-                        icon={<item.icon size={18} />}
-                        label={item.label}
-                        subtitle={item.subtitle}
-                        open={open}
-                        active={
-                            item.href === "/ProducerDashboard"
-                                ? pathname === "/ProducerDashboard"
-                                : pathname.startsWith(item.href)
-                        }
-                        onClick={() => router.push(item.href)}
-                    />
+                    <div key={item.href} className="space-y-1">
+                        <SidebarItem
+                            icon={<item.icon size={18} />}
+                            label={item.label}
+                            subtitle={item.subtitle}
+                            open={open}
+                            active={
+                                item.href === "/ProducerDashboard"
+                                    ? pathname === "/ProducerDashboard"
+                                    : pathname.startsWith(item.href)
+                            }
+                            onClick={() => router.push(item.href)}
+                        />
+
+                        {open && item.children?.length ? (
+                            <div className="ml-5 space-y-1">
+                                {item.children.map((child) => {
+                                    const isChildActive = pathname === child.href || pathname.startsWith(`${child.href}/`);
+                                    return (
+                                        <SidebarItem
+                                            key={child.href}
+                                            icon={child.icon ? <child.icon size={15} /> : <span className="inline-block w-[15px]" />}
+                                            label={child.label}
+                                            open={open}
+                                            active={isChildActive}
+                                            onClick={() => router.push(child.href)}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        ) : null}
+                    </div>
                 ))}
             </div>
         </div>
