@@ -10,28 +10,27 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
+from .models.agriculture import IrrigationLog, Vineyard, VineyardBlock, WeatherData
 from .serializers_vigil import (
-    VineyardSerializer,
-    VineyardBlockSerializer,
     ScanSessionSerializer,
     GrapeClusterSerializer,
     PestDiseaseDetectionSerializer,
-    WeatherDataSerializer,
-    IrrigationLogSerializer,
     GrapeSpeciesProfileSerializer,
     YieldEstimateSerializer,
     VigilTrainingSampleSerializer,
     VigilMLModelVersionSerializer,
     VigilInferenceResultSerializer,
 )
+from .serializers_agriculture import (
+    IrrigationLogSerializer,
+    VineyardBlockSerializer,
+    VineyardSerializer,
+    WeatherDataSerializer,
+)
 from .models.vigil import (
-    Vineyard,
-    VineyardBlock,
     ScanSession,
     GrapeCluster,
     PestDiseaseDetection,
-    WeatherData,
-    IrrigationLog,
     GrapeSpeciesProfile,
     YieldEstimate,
     VigilTrainingSample,

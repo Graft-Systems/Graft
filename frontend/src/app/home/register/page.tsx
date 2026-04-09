@@ -58,7 +58,7 @@ export default function RegisterPage() {
             localStorage.setItem("access", access);
             localStorage.setItem("refresh", refresh);
             localStorage.setItem("role", userRole);
-            localStorage.setItem("is_staff", is_staff);
+            localStorage.setItem("is_staff", String(is_staff));
 
             setTimeout(() => {
                 if (role === "producer") {

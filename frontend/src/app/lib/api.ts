@@ -19,15 +19,34 @@ function normalizeApiBaseURL(envBaseURL: string | undefined) {
     return lower.endsWith("/api") ? noTrailing : `${noTrailing}/api`;
 }
 
+const API_BASE_URL = normalizeApiBaseURL(process.env.NEXT_PUBLIC_API_BASE_URL);
+
+let refreshRequest: Promise<string | null> | null = null;
+
+function isAuthRoute(url?: string) {
+    if (!url) return false;
+    return ["/login/", "/register/", "/token/", "/token/refresh/"].some((route) => url.includes(route));
+}
+
+function clearStoredAuth() {
+    if (typeof window === "undefined") return;
+    localStorage.removeItem("access");
+    localStorage.removeItem("refresh");
+    localStorage.removeItem("role");
+    localStorage.removeItem("is_staff");
+}
+
 const api = axios.create({
-    baseURL: normalizeApiBaseURL(process.env.NEXT_PUBLIC_API_BASE_URL),
+    baseURL: API_BASE_URL,
 });
 
 api.interceptors.request.use((config) => {
-    if (config.url && !config.url.includes("login") && !config.url.includes("register")) {
-        const token = localStorage.getItem("access");
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
+    if (typeof window !== "undefined") {
+        if (!isAuthRoute(config.url)) {
+            const token = localStorage.getItem("access");
+            if (token) {
+                config.headers.Authorization = `Bearer ${token}`;
+            }
         }
     }
 
@@ -43,40 +62,57 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
-        const originalRequest = error?.config as (typeof error.config & { _retry?: boolean }) | undefined;
-        const status = error?.response?.status;
+        const originalRequest = error.config as (typeof error.config & { _retry?: boolean }) | undefined;
 
-        // Attempt one token refresh for authenticated endpoints.
         if (
-            status === 401 &&
-            originalRequest &&
-            !originalRequest._retry &&
-            !String(originalRequest.url || "").includes("/login/") &&
-            !String(originalRequest.url || "").includes("/register/") &&
-            !String(originalRequest.url || "").includes("/token/refresh/")
+            typeof window === "undefined" ||
+            !originalRequest ||
+            originalRequest._retry ||
+            error.response?.status !== 401 ||
+            isAuthRoute(originalRequest.url)
         ) {
-            originalRequest._retry = true;
-            const refresh = localStorage.getItem("refresh");
-            if (!refresh) {
-                return Promise.reject(error);
-            }
-            try {
-                const tokenRes = await api.post("/token/refresh/", { refresh });
-                const nextAccess = tokenRes.data?.access;
-                if (nextAccess) {
-                    localStorage.setItem("access", nextAccess);
-                    originalRequest.headers = originalRequest.headers || {};
-                    originalRequest.headers.Authorization = `Bearer ${nextAccess}`;
-                }
-                return api(originalRequest);
-            } catch (refreshError) {
-                localStorage.removeItem("access");
-                localStorage.removeItem("refresh");
-                return Promise.reject(refreshError);
-            }
+            return Promise.reject(error);
         }
 
-        return Promise.reject(error);
+        const refreshToken = localStorage.getItem("refresh");
+        if (!refreshToken) {
+            clearStoredAuth();
+            return Promise.reject(error);
+        }
+
+        originalRequest._retry = true;
+
+        if (!refreshRequest) {
+            refreshRequest = axios
+                .post(`${API_BASE_URL}/token/refresh/`, { refresh: refreshToken })
+                .then((response) => {
+                    const newAccessToken = response.data?.access;
+                    if (newAccessToken) {
+                        localStorage.setItem("access", newAccessToken);
+                        return newAccessToken as string;
+                    }
+                    return null;
+                })
+                .catch(() => {
+                    clearStoredAuth();
+                    return null;
+                })
+                .finally(() => {
+                    refreshRequest = null;
+                });
+        }
+
+        const newAccessToken = await refreshRequest;
+        if (!newAccessToken) {
+            return Promise.reject(error);
+        }
+
+        originalRequest.headers = {
+            ...(originalRequest.headers ?? {}),
+            Authorization: `Bearer ${newAccessToken}`,
+        };
+
+        return api(originalRequest);
     }
 );
 

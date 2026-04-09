@@ -12,11 +12,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         // When the layout mounts, check localStorage for auth tokens
         const accessToken = localStorage.getItem("access");
         const userRole = localStorage.getItem("role");
+        const isStaffRaw = localStorage.getItem("is_staff");
+        const isStaff = isStaffRaw === "true" || isStaffRaw === "True" || isStaffRaw === "1";
 
-        if (accessToken && userRole) {
-            // If tokens exist, the user is authenticated.
-            // Set the role for the sidebar and stop loading.
-            setRole(userRole);
+        if (accessToken && (isStaff || !!userRole)) {
+            // If token exists and either role exists or user is staff, treat as authenticated.
+            // Role is optional for admin/staff users.
+            setRole(isStaff ? "admin" : userRole);
             setLoading(false);
         } else {
             // If no tokens, the user is not authenticated.

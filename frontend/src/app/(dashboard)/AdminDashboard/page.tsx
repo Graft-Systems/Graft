@@ -26,7 +26,7 @@ export default function AdminDashboard() {
             const baseUrl =
                 process.env.NEXT_PUBLIC_FRONTEND_URL ||
                 window.location.origin; // fallback to current origin
-            window.location.href = `${baseUrl}/login`;
+            window.location.href = `${baseUrl}/home/login`;
         }
     }, []);
 

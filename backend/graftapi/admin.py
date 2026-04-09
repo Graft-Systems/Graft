@@ -5,6 +5,7 @@ from .models import (
     WholesalePrice, RetailContact, LocationRequest, MarketingMaterial,
     Vineyard, VineyardBlock, ScanSession, GrapeCluster,
     PestDiseaseDetection, WeatherData, IrrigationLog,
+    BlockMoistureTarget, SoilMoistureReading, IrrigationRecommendation,
     GrapeSpeciesProfile, YieldEstimate, VigilMLModelVersion,
     VigilTrainingSample, VigilInferenceResult,
 )
@@ -161,6 +162,28 @@ class IrrigationLogAdmin(admin.ModelAdmin):
     list_display = ("block", "date", "method", "gallons_applied")
     list_filter = ("method",)
     date_hierarchy = "date"
+
+
+@admin.register(BlockMoistureTarget)
+class BlockMoistureTargetAdmin(admin.ModelAdmin):
+    list_display = ("block", "target_min_pct", "target_max_pct", "critical_min_pct", "updated_at")
+    search_fields = ("block__name", "block__vineyard__name")
+
+
+@admin.register(SoilMoistureReading)
+class SoilMoistureReadingAdmin(admin.ModelAdmin):
+    list_display = ("block", "recorded_at", "moisture_pct", "source")
+    list_filter = ("source",)
+    search_fields = ("block__name", "block__vineyard__name", "source_label")
+    date_hierarchy = "recorded_at"
+
+
+@admin.register(IrrigationRecommendation)
+class IrrigationRecommendationAdmin(admin.ModelAdmin):
+    list_display = ("block", "generated_at", "horizon_days", "action", "confidence_score")
+    list_filter = ("action", "horizon_days")
+    search_fields = ("block__name", "block__vineyard__name")
+    date_hierarchy = "generated_at"
 
 
 @admin.register(GrapeSpeciesProfile)

@@ -48,6 +48,21 @@ from .views_vigil import (
     VigilDatasetSourceView,
     VigilDatasetImportView,
 )
+from .views_agriculture import (
+    AgricultureVineyardView,
+    AgricultureBlockView,
+    AgricultureWeatherView,
+    AgricultureIrrigationLogView,
+    AgricultureIrrigationLogDetailView,
+)
+from .views_irrigation import (
+    SoilMoistureReadingView,
+    SoilMoistureUploadView,
+    BlockMoistureTargetView,
+    IrrigationRecommendationView,
+    IrrigationRecommendationGenerateView,
+    IrrigationSummaryView,
+)
 
 from .legal_insight_views import (
     legal_insight_form_automator_generate,
@@ -84,7 +99,6 @@ urlpatterns = [
     path("retail-contacts/<int:pk>/", RetailContactDetailView.as_view(), name="retail-contacts-detail"),
     path("marketing/generate/", generate_marketing, name="marketing-generate"),
     path("marketing/history/", MarketingHistoryView.as_view(), name="marketing-history"),
-
     # Legal Insight MVP endpoints (under /api/)
     path("legal-insight/state-profiles/", legal_insight_state_profiles, name="legal-insight-state-profiles"),
     path("legal-insight/state-corpus/<str:state_code>/", legal_insight_state_corpus, name="legal-insight-state-corpus"),
@@ -92,6 +106,19 @@ urlpatterns = [
     path("legal-insight/input-map/<str:state_code>/", legal_insight_input_map, name="legal-insight-input-map"),
     path("legal-insight/form-automator/generate/", legal_insight_form_automator_generate, name="legal-insight-form-automator-generate"),
     path("legal-insight/documents/upload/", legal_insight_upload_document, name="legal-insight-documents-upload"),
+    # Shared agriculture endpoints
+    path("agriculture/vineyards/", AgricultureVineyardView.as_view(), name="agriculture-vineyards"),
+    path("agriculture/blocks/", AgricultureBlockView.as_view(), name="agriculture-blocks"),
+    path("agriculture/weather/", AgricultureWeatherView.as_view(), name="agriculture-weather"),
+    path("agriculture/irrigation-logs/", AgricultureIrrigationLogView.as_view(), name="agriculture-irrigation-logs"),
+    path("agriculture/irrigation-logs/<int:pk>/", AgricultureIrrigationLogDetailView.as_view(), name="agriculture-irrigation-logs-detail"),
+    # Separate irrigation advisor endpoints
+    path("irrigation/summary/", IrrigationSummaryView.as_view(), name="irrigation-summary"),
+    path("irrigation/soil-moisture/", SoilMoistureReadingView.as_view(), name="irrigation-soil-moisture"),
+    path("irrigation/soil-moisture/upload/", SoilMoistureUploadView.as_view(), name="irrigation-soil-moisture-upload"),
+    path("irrigation/targets/<int:block_id>/", BlockMoistureTargetView.as_view(), name="irrigation-targets"),
+    path("irrigation/recommendations/", IrrigationRecommendationView.as_view(), name="irrigation-recommendations"),
+    path("irrigation/recommendations/generate/", IrrigationRecommendationGenerateView.as_view(), name="irrigation-recommendations-generate"),
     # VIGIL endpoints
     path("vigil/summary/", VigilDashboardSummaryView.as_view(), name="vigil-summary"),
     path("vigil/vineyards/", VineyardView.as_view(), name="vigil-vineyards"),

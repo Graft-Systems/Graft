@@ -23,6 +23,7 @@ from .models.contacts import RetailContact, LocationRequest
 from .models.marketing import MarketingMaterial
 from .models.distribution import Delivery, RetailSale
 from .legal_rag import format_citations, retrieve_chunks
+from .models import UserProfile
 
 
 class RegisterView(generics.CreateAPIView):
@@ -44,18 +45,26 @@ def login_user(request):
     user = authenticate(username=username, password=password)
     if user is not None:
         refresh = RefreshToken.for_user(user)
-        # `user.profile` may not exist for legacy users; avoid crashing the login endpoint.
-        try:
-            role = user.profile.role
-        except Exception:
-            role = None
+        role = getattr(getattr(user, "profile", None), "role", None)
 
+        # Be resilient to legacy/malformed users with missing/blank roles.
         if not role:
-            # Provide a useful error for users that exist but have no role/profile set.
-            return Response(
-                {"error": "User profile role is missing. Please complete registration/profile setup."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            if user.is_staff:
+                role = "admin"
+            elif Producer.objects.filter(user=user).exists():
+                role = "producer"
+            elif Store.objects.filter(user=user).exists():
+                role = "retailer"
+            else:
+                role = "retailer"
+
+            # Persist the repaired role/profile so subsequent logins are consistent.
+            if hasattr(user, "profile"):
+                if user.profile.role != role:
+                    user.profile.role = role
+                    user.profile.save(update_fields=["role"])
+            else:
+                UserProfile.objects.create(user=user, role=role)
 
         return Response(
             {

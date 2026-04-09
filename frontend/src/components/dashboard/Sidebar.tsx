@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import type { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Menu, LayoutDashboard, Eye, Scale, Cpu } from "lucide-react";
+import { Menu, LayoutDashboard, Eye, Scale, Cpu, Droplets } from "lucide-react";
 
 interface NavItem {
     label: string;
@@ -41,6 +40,12 @@ const NAV_ITEMS: NavItem[] = [
         subtitle: "State Profile → Logic Tree",
         icon: Scale,
         href: "/ProducerDashboard/legal",
+    },
+    {
+        label: "Irrigation Advisor",
+        subtitle: "Soil moisture tracking and irrigation guidance",
+        icon: Droplets,
+        href: "/ProducerDashboard/irrigation",
     },
 ];
 

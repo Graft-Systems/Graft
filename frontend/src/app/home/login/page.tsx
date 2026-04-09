@@ -30,7 +30,7 @@ export default function LoginPage() {
             localStorage.setItem("access", access);
             localStorage.setItem("refresh", refresh);
             localStorage.setItem("role", role);
-            localStorage.setItem("is_staff", is_staff);
+            localStorage.setItem("is_staff", String(is_staff));
 
             let dashboardPath = "";
             if (is_staff) dashboardPath = "/AdminDashboard";
