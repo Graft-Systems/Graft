@@ -5,6 +5,7 @@ A wine distribution and retail analytics platform.
 ## Tech Stack
 
 ### Backend
+
 - **Framework**: Django 5.2.8
 - **API**: Django REST Framework
 - **Authentication**: JWT (Simple JWT)
@@ -12,6 +13,7 @@ A wine distribution and retail analytics platform.
 - **Admin**: Jazzmin
 
 ### Frontend
+
 - **Framework**: Next.js 16
 - **UI**: React 19, Tailwind CSS 4
 - **Animations**: Framer Motion
@@ -23,47 +25,56 @@ A wine distribution and retail analytics platform.
 ## Getting Started
 
 ### Prerequisites
+
 - [Docker](https://www.docker.com/get-started) & Docker Compose
 
 ### Running with Docker (Recommended)
 
 **Start both frontend and backend:**
+
 ```bash
 docker-compose up
 ```
 
 **Start in detached mode (background):**
+
 ```bash
 docker-compose up -d
 ```
 
 **Rebuild containers after dependency changes:**
+
 ```bash
 docker-compose up --build
 ```
 
 **Stop all services:**
+
 ```bash
 docker-compose down
 ```
 
 ### Services
 
-| Service  | URL                     | Description          |
-|----------|-------------------------|----------------------|
-| Frontend | http://localhost:3000   | Next.js application  |
-| Backend  | http://localhost:8000   | Django REST API      |
-| Admin    | http://localhost:8000/admin | Django Admin Panel |
+
+| Service  | URL                                                        | Description         |
+| -------- | ---------------------------------------------------------- | ------------------- |
+| Frontend | [http://localhost:3000](http://localhost:3000)             | Next.js application |
+| Backend  | [http://localhost:8000](http://localhost:8000)             | Django REST API     |
+| Admin    | [http://localhost:8000/admin](http://localhost:8000/admin) | Django Admin Panel  |
+
 
 ---
 
 ## Running without Docker (Alternative)
 
 ### Prerequisites
+
 - Python 3.12+
 - Node.js 20+
 
 ### Backend Setup
+
 ```bash
 cd backend  
 python -m venv venv
@@ -74,6 +85,7 @@ python manage.py runserver
 ```
 
 ### Frontend Setup
+
 ```bash
 cd frontend
 npm install
@@ -81,6 +93,7 @@ npm run dev
 ```
 
 ### Using Make (Legacy)
+
 ```bash
 # Run both services
 make both

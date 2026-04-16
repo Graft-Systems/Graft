@@ -210,3 +210,12 @@ backend/venv312/
 backend/venv/
 backend/media/
 .DS_Store
+
+# Local dataset archives (never commit)
+_local_archive/
+
+# Raw datasets (kept only locally)
+GrapesNet Indian Grape Clusters RGB & RGB-D Image Datasets/
+thsant-wgisd-ab223e5/
+annotations/
+images/

@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
     BrainCircuit,
     FlaskConical,
     Loader2,
     Play,
+    ChevronDown,
     Trash2,
     Upload,
     Image as ImageIcon,
@@ -125,10 +126,23 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId, refreshT
     const [latestPrediction, setLatestPrediction] = useState<PredictionResult | null>(null);
     const [expandedPredictionImageUrl, setExpandedPredictionImageUrl] = useState<string | null>(null);
     const [expandedPredictionLabel, setExpandedPredictionLabel] = useState<string>("Prediction image");
+    const filtersMenuRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         fetchWorkbenchData();
     }, [blockId, scanSessionId, refreshToken]);
+
+    useEffect(() => {
+        if (!showAdvancedPredictFields) return;
+        const onPointerDown = (e: PointerEvent) => {
+            const el = filtersMenuRef.current;
+            if (el && !el.contains(e.target as Node)) {
+                setShowAdvancedPredictFields(false);
+            }
+        };
+        document.addEventListener("pointerdown", onPointerDown);
+        return () => document.removeEventListener("pointerdown", onPointerDown);
+    }, [showAdvancedPredictFields]);
 
     const fetchWorkbenchData = async () => {
         setLoading(true);
@@ -603,189 +617,207 @@ export default function VigilMLWorkbenchPanel({ blockId, scanSessionId, refreshT
 
             {showInferencePanels ? (
                 <div className="space-y-4">
-                <form onSubmit={handlePredict} className="rounded-2xl p-4 xl:p-5 space-y-4" style={{ backgroundColor: "#eff6ff", border: "1px solid #bfdbfe" }}>
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg" style={{ backgroundColor: "#dbeafe", color: "#1d4ed8" }}>
-                            <Play size={18} />
+                <form onSubmit={handlePredict} className="rounded-2xl p-4 xl:p-6 space-y-4" style={{ backgroundColor: "#ffffff", border: "1px solid #e5e7eb" }}>
+                    <div className="space-y-2">
+                        <h3 className="text-[30px] leading-tight font-bold" style={{ color: "#111827" }}>
+                            Test a Grape Cluster
+                        </h3>
+                        <div className="grid grid-cols-1 xl:grid-cols-[260px_minmax(0,1fr)] items-center gap-3">
+                            <label className="text-lg font-semibold" style={{ color: "#111827" }}>Choose a model:</label>
+                            <select
+                                className="h-12 px-3 rounded-xl border text-base text-gray-900"
+                                style={{ borderColor: "#94a3b8" }}
+                                value={selectedModelId}
+                                onChange={(e) => setSelectedModelId(e.target.value ? Number(e.target.value) : "")}
+                            >
+                                <option value="">Use active model</option>
+                                {readyModels.map((model) => (
+                                    <option key={model.id} value={model.id}>
+                                        {model.name} v{model.version}{model.is_active ? " (active)" : ""}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
-                        <div>
-                            <h3 className="text-lg font-bold" style={{ color: "#262626" }}>Test on a Real Image</h3>
-                            <p className="text-sm" style={{ color: "#6b7280" }}>Run inference using the active model or pick a prior trained version.</p>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setPredictionMode("single");
-                                if (predictionFiles.length > 1) {
-                                    setPredictionFiles(predictionFiles.slice(0, 1));
-                                }
-                            }}
-                            className="px-3 py-1.5 rounded-lg text-sm font-semibold transition"
-                            style={{
-                                backgroundColor: predictionMode === "single" ? "#1d4ed8" : "#ffffff",
-                                color: predictionMode === "single" ? "#ffffff" : "#1d4ed8",
-                                border: "1px solid #93c5fd",
-                            }}
-                        >
-                            One Image
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setPredictionMode("multiple")}
-                            className="px-3 py-1.5 rounded-lg text-sm font-semibold transition"
-                            style={{
-                                backgroundColor: predictionMode === "multiple" ? "#1d4ed8" : "#ffffff",
-                                color: predictionMode === "multiple" ? "#ffffff" : "#1d4ed8",
-                                border: "1px solid #93c5fd",
-                            }}
-                        >
-                            Multiple Images
-                        </button>
                     </div>
 
                     <label
-                        className="block rounded-xl border border-dashed p-6 xl:p-8 cursor-pointer"
-                        style={{ borderColor: "#93c5fd", backgroundColor: "#ffffff", minHeight: "220px" }}
+                        className="block rounded-2xl border cursor-pointer overflow-hidden"
+                        style={{ borderColor: "#cbd5e1", minHeight: "220px" }}
                     >
-                        <div className="h-full flex flex-col items-center justify-center text-center gap-3">
-                            <Sparkles size={22} style={{ color: "#1d4ed8" }} />
-                            <div>
-                                <p className="font-semibold" style={{ color: "#262626" }}>
-                                    {predictionFiles.length > 0
-                                        ? `${predictionFiles.length} image${predictionFiles.length === 1 ? "" : "s"} selected`
-                                        : `Upload ${predictionMode === "single" ? "an image" : "one or more images"}`}
+                        <div
+                            className="h-full p-6 xl:p-8 flex flex-col items-center justify-center text-center gap-3"
+                            style={{
+                                backgroundColor: "rgba(248, 245, 252, 0.92)",
+                                backgroundImage:
+                                    "linear-gradient(180deg, rgba(255,255,255,0.78) 0%, rgba(245,240,250,0.85) 50%, rgba(237, 233, 254, 0.82) 100%), url(/vigil-grape-cluster-bg.svg)",
+                                backgroundSize: "cover",
+                                backgroundPosition: "center",
+                                backgroundRepeat: "no-repeat",
+                            }}
+                        >
+                            <Upload size={24} style={{ color: "#111827" }} />
+                            <p className="text-3xl xl:text-4xl font-semibold" style={{ color: "#111827" }}>
+                                Upload image(s) here
+                            </p>
+                            <p className="text-sm" style={{ color: "#334155" }}>
+                                JPG or PNG. You can select one or multiple files.
+                            </p>
+                            {predictionFiles.length > 0 ? (
+                                <p className="text-sm font-semibold" style={{ color: "#0f172a" }}>
+                                    {predictionFiles.length} file{predictionFiles.length === 1 ? "" : "s"} selected
                                 </p>
-                                <p className="text-xs mt-1" style={{ color: "#6b7280" }}>
-                                    Drag and drop or click to browse. Supported formats: JPG, PNG.
-                                </p>
-                                {predictionFiles.length > 0 ? (
-                                    <p className="text-xs mt-2" style={{ color: "#1d4ed8" }}>
-                                        {predictionFiles.slice(0, 2).map((file) => file.name).join(" | ")}
-                                        {predictionFiles.length > 2 ? ` | +${predictionFiles.length - 2} more` : ""}
-                                    </p>
-                                ) : null}
-                            </div>
+                            ) : null}
                         </div>
                         <input
                             type="file"
                             accept="image/*"
-                            multiple={predictionMode === "multiple"}
+                            multiple
                             className="hidden"
-                            onChange={(e) => {
-                                const files = Array.from(e.target.files || []);
-                                setPredictionFiles(predictionMode === "single" ? files.slice(0, 1) : files);
-                            }}
+                            onChange={(e) => setPredictionFiles(Array.from(e.target.files || []))}
                         />
                     </label>
 
-                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
-                        <select
-                            className="p-2 border rounded-md text-gray-900"
-                            value={selectedModelId}
-                            onChange={(e) => setSelectedModelId(e.target.value ? Number(e.target.value) : "")}
+                    <div className="relative flex justify-end" ref={filtersMenuRef}>
+                        <button
+                            type="button"
+                            onClick={() => setShowAdvancedPredictFields((value) => !value)}
+                            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold border"
+                            style={{ color: "#111827", borderColor: "#171717", backgroundColor: "#f8fafc" }}
+                            aria-expanded={showAdvancedPredictFields}
                         >
-                            <option value="">Use active model</option>
-                            {readyModels.map((model) => (
-                                <option key={model.id} value={model.id}>{model.name} v{model.version}{model.is_active ? " (active)" : ""}</option>
-                            ))}
-                        </select>
-                        <input
-                            className="p-2 border rounded-md text-gray-900 placeholder:text-gray-500"
-                            placeholder="Prediction Label"
-                            value={predictionForm.sample_name}
-                            onChange={(e) => setPredictionForm({ ...predictionForm, sample_name: e.target.value })}
-                        />
-                        <input
-                            className="p-2 border rounded-md text-gray-900 placeholder:text-gray-500"
-                            placeholder="Grape Species"
-                            value={predictionForm.grape_species}
-                            onChange={(e) => setPredictionForm({ ...predictionForm, grape_species: e.target.value })}
-                        />
+                            More Filters:
+                            <ChevronDown
+                                size={16}
+                                className={`shrink-0 transition-transform ${showAdvancedPredictFields ? "rotate-180" : ""}`}
+                                aria-hidden
+                            />
+                        </button>
+
+                        {showAdvancedPredictFields ? (
+                            <div
+                                className="absolute right-0 top-full z-30 mt-2 w-full max-w-md rounded-sm border border-neutral-900 bg-white shadow-lg"
+                                role="listbox"
+                                aria-label="Optional prediction fields"
+                            >
+                                <div className="flex flex-col divide-y divide-neutral-900">
+                                    <label className="group flex cursor-pointer flex-col gap-1 px-3 py-2.5 text-left hover:bg-sky-100">
+                                        <span className="text-sm font-medium text-neutral-900">Prediction Label</span>
+                                        <input
+                                            className="w-full border-0 bg-transparent p-0 text-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none focus:ring-0"
+                                            placeholder="Optional label"
+                                            value={predictionForm.sample_name}
+                                            onChange={(e) => setPredictionForm({ ...predictionForm, sample_name: e.target.value })}
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                    </label>
+                                    <label className="group flex cursor-pointer flex-col gap-1 px-3 py-2.5 text-left hover:bg-sky-100">
+                                        <span className="text-sm font-medium text-neutral-900">Grape Species</span>
+                                        <input
+                                            className="w-full border-0 bg-transparent p-0 text-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none focus:ring-0"
+                                            placeholder="e.g. Cabernet"
+                                            value={predictionForm.grape_species}
+                                            onChange={(e) => setPredictionForm({ ...predictionForm, grape_species: e.target.value })}
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                    </label>
+                                    <label className="group flex cursor-pointer flex-col gap-1 px-3 py-2.5 text-left hover:bg-sky-100">
+                                        <span className="text-sm font-medium text-neutral-900">Occlusion %</span>
+                                        <input
+                                            className="w-full border-0 bg-transparent p-0 text-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none focus:ring-0"
+                                            type="number"
+                                            step="0.01"
+                                            placeholder="0"
+                                            value={predictionForm.occlusion_percentage}
+                                            onChange={(e) => setPredictionForm({ ...predictionForm, occlusion_percentage: e.target.value })}
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                    </label>
+                                    <label className="group flex cursor-pointer flex-col gap-1 px-3 py-2.5 text-left hover:bg-sky-100">
+                                        <span className="text-sm font-medium text-neutral-900">Hanging Height (cm)</span>
+                                        <input
+                                            className="w-full border-0 bg-transparent p-0 text-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none focus:ring-0"
+                                            type="number"
+                                            step="0.01"
+                                            placeholder=""
+                                            value={predictionForm.hanging_height_cm}
+                                            onChange={(e) => setPredictionForm({ ...predictionForm, hanging_height_cm: e.target.value })}
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                    </label>
+                                    <label className="group flex cursor-pointer flex-col gap-1 px-3 py-2.5 text-left hover:bg-sky-100">
+                                        <span className="text-sm font-medium text-neutral-900">Berry Count</span>
+                                        <input
+                                            className="w-full border-0 bg-transparent p-0 text-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none focus:ring-0"
+                                            type="number"
+                                            placeholder=""
+                                            value={predictionForm.berry_count}
+                                            onChange={(e) => setPredictionForm({ ...predictionForm, berry_count: e.target.value })}
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                    </label>
+                                    <label className="group flex cursor-pointer flex-col gap-1 px-3 py-2.5 text-left hover:bg-sky-100">
+                                        <span className="text-sm font-medium text-neutral-900">Weather Temp (F)</span>
+                                        <input
+                                            className="w-full border-0 bg-transparent p-0 text-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none focus:ring-0"
+                                            type="number"
+                                            step="0.1"
+                                            placeholder=""
+                                            value={predictionForm.weather_temp_f}
+                                            onChange={(e) => setPredictionForm({ ...predictionForm, weather_temp_f: e.target.value })}
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                    </label>
+                                    <label className="group flex cursor-pointer flex-col gap-1 px-3 py-2.5 text-left hover:bg-sky-100">
+                                        <span className="text-sm font-medium text-neutral-900">Recent Rain (in)</span>
+                                        <input
+                                            className="w-full border-0 bg-transparent p-0 text-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none focus:ring-0"
+                                            type="number"
+                                            step="0.01"
+                                            placeholder=""
+                                            value={predictionForm.recent_rain_in}
+                                            onChange={(e) => setPredictionForm({ ...predictionForm, recent_rain_in: e.target.value })}
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                    </label>
+                                    <label className="group flex cursor-pointer flex-col gap-1 px-3 py-2.5 text-left hover:bg-sky-100">
+                                        <span className="text-sm font-medium text-neutral-900">Soil Moisture %</span>
+                                        <input
+                                            className="w-full border-0 bg-transparent p-0 text-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none focus:ring-0"
+                                            type="number"
+                                            step="0.1"
+                                            placeholder=""
+                                            value={predictionForm.soil_moisture_pct}
+                                            onChange={(e) => setPredictionForm({ ...predictionForm, soil_moisture_pct: e.target.value })}
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                    </label>
+                                </div>
+                                <div className="border-t border-neutral-900 px-3 py-2.5 hover:bg-sky-50">
+                                    <label className="text-sm font-medium text-neutral-900">Metadata (JSON)</label>
+                                    <textarea
+                                        className="mt-1 w-full resize-y rounded border border-neutral-300 p-2 text-sm text-neutral-900 placeholder:text-neutral-500 focus:border-neutral-900 focus:outline-none"
+                                        rows={2}
+                                        placeholder='e.g. {"camera_angle": "left-canopy"}'
+                                        value={predictionForm.metadata}
+                                        onChange={(e) => setPredictionForm({ ...predictionForm, metadata: e.target.value })}
+                                        onClick={(e) => e.stopPropagation()}
+                                    />
+                                </div>
+                            </div>
+                        ) : null}
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={() => setShowAdvancedPredictFields((value) => !value)}
-                        className="text-sm font-semibold"
-                        style={{ color: "#1d4ed8" }}
-                    >
-                        {showAdvancedPredictFields ? "Hide Advanced Options" : "Show Advanced Options"}
-                    </button>
-
-                    {showAdvancedPredictFields ? (
-                        <>
-                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                        <input
-                            className="p-2 border rounded-md text-gray-900 placeholder:text-gray-500"
-                            type="number"
-                            step="0.01"
-                            placeholder="Occlusion %"
-                            value={predictionForm.occlusion_percentage}
-                            onChange={(e) => setPredictionForm({ ...predictionForm, occlusion_percentage: e.target.value })}
-                        />
-                        <input
-                            className="p-2 border rounded-md text-gray-900 placeholder:text-gray-500"
-                            type="number"
-                            step="0.01"
-                            placeholder="Hanging Height (cm)"
-                            value={predictionForm.hanging_height_cm}
-                            onChange={(e) => setPredictionForm({ ...predictionForm, hanging_height_cm: e.target.value })}
-                        />
-                        <input
-                            className="p-2 border rounded-md text-gray-900 placeholder:text-gray-500"
-                            type="number"
-                            placeholder="Berry Count"
-                            value={predictionForm.berry_count}
-                            onChange={(e) => setPredictionForm({ ...predictionForm, berry_count: e.target.value })}
-                        />
-                        <input
-                            className="p-2 border rounded-md text-gray-900 placeholder:text-gray-500"
-                            type="number"
-                            step="0.1"
-                            placeholder="Weather Temp (°F)"
-                            value={predictionForm.weather_temp_f}
-                            onChange={(e) => setPredictionForm({ ...predictionForm, weather_temp_f: e.target.value })}
-                        />
-                        <input
-                            className="p-2 border rounded-md text-gray-900 placeholder:text-gray-500"
-                            type="number"
-                            step="0.01"
-                            placeholder="Recent Rain (in)"
-                            value={predictionForm.recent_rain_in}
-                            onChange={(e) => setPredictionForm({ ...predictionForm, recent_rain_in: e.target.value })}
-                        />
-                        <input
-                            className="p-2 border rounded-md text-gray-900 placeholder:text-gray-500"
-                            type="number"
-                            step="0.1"
-                            placeholder="Soil Moisture %"
-                            value={predictionForm.soil_moisture_pct}
-                            onChange={(e) => setPredictionForm({ ...predictionForm, soil_moisture_pct: e.target.value })}
-                        />
-                            </div>
-
-                            <textarea
-                                className="w-full p-2 border rounded-md text-gray-900 placeholder:text-gray-500"
-                                rows={3}
-                                placeholder='Optional metadata JSON for inference, e.g. {"camera_angle": "left-canopy"}'
-                                value={predictionForm.metadata}
-                                onChange={(e) => setPredictionForm({ ...predictionForm, metadata: e.target.value })}
-                            />
-                        </>
-                    ) : null}
-
-                    <button
-                        type="submit"
-                        disabled={predicting}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold transition"
-                        style={{ backgroundColor: "#1d4ed8", color: "#ffffff", opacity: predicting ? 0.7 : 1 }}
-                    >
-                        {predicting ? <Loader2 size={18} className="animate-spin" /> : <Play size={18} />}
-                        {predictionMode === "multiple" ? "Run Batch Predictions" : "Run Volume Prediction"}
-                    </button>
+                    <div className="flex justify-center">
+                        <button
+                            type="submit"
+                            disabled={predicting}
+                            className="inline-flex items-center justify-center gap-2 px-8 py-3 rounded-2xl text-xl font-semibold transition"
+                            style={{ backgroundColor: "#1d4ed8", color: "#ffffff", opacity: predicting ? 0.7 : 1, minWidth: "360px" }}
+                        >
+                            {predicting ? <Loader2 size={20} className="animate-spin" /> : <Play size={20} />}
+                            Run Volume Prediction
+                        </button>
+                    </div>
                 </form>
 
                 <div className="space-y-4">
