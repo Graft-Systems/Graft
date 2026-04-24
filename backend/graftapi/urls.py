@@ -72,6 +72,12 @@ from .legal_insight_views import (
     legal_insight_state_profiles,
     legal_insight_upload_document,
 )
+from .views_demo_geoyield import (
+    DemoGeoAggregateView,
+    DemoGeoImageView,
+    DemoGeoLayersView,
+    DemoGeoVineLatestPhotoView,
+)
 
 urlpatterns = [
     path("register/", RegisterView.as_view(), name="register"),
@@ -143,4 +149,9 @@ urlpatterns = [
     path("vigil/ml/predictions/", VigilInferenceView.as_view(), name="vigil-ml-predictions"),
     path("vigil/ml/datasets/", VigilDatasetSourceView.as_view(), name="vigil-ml-datasets"),
     path("vigil/ml/datasets/<str:dataset_key>/import/", VigilDatasetImportView.as_view(), name="vigil-ml-dataset-import"),
+    # Synthetic geospatial demo endpoints (no PostGIS required)
+    path("vigil/demo-geoyield/layers/", DemoGeoLayersView.as_view(), name="vigil-demo-geoyield-layers"),
+    path("vigil/demo-geoyield/aggregate/", DemoGeoAggregateView.as_view(), name="vigil-demo-geoyield-aggregate"),
+    path("vigil/demo-geoyield/vines/<str:vine_id>/latest-photo/", DemoGeoVineLatestPhotoView.as_view(), name="vigil-demo-geoyield-vine-latest-photo"),
+    path("vigil/demo-geoyield/images/<path:filepath>/", DemoGeoImageView.as_view(), name="vigil-demo-geoyield-image"),
 ]

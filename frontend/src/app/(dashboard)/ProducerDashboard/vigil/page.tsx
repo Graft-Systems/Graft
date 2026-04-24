@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import Sidebar from "@/components/dashboard/Sidebar";
 import PanelContainer from "@/components/dashboard/PanelContainer";
 
@@ -42,6 +43,14 @@ export default function VigilDashboard() {
                                 AI-powered hidden grape cluster detection and yield estimation.
                             </p>
                         </div>
+                        <Link
+                            href="/ProducerDashboard/vigil/map"
+                            className="inline-flex items-center gap-2 text-base font-semibold px-5 py-3 rounded-xl shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
+                            style={{ backgroundColor: "#9f1239", color: "#ffffff", border: "1px solid #9f1239" }}
+                        >
+                            Open Geospatial Yield
+                            <span aria-hidden>→</span>
+                        </Link>
                     </header>
 
                     <VigilSummaryCards />
